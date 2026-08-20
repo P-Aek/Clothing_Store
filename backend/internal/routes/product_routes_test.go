@@ -27,7 +27,7 @@ func productTestApp() *fiber.App {
 	products := &routeProductRepository{products: map[primitive.ObjectID]models.Product{}}
 	controller := controllers.NewProductController(services.NewProductService(products, categories))
 	app := fiber.New()
-	Register(app, nil, nil, nil, controller, "test-secret")
+	Register(app, nil, nil, nil, controller, nil, "test-secret")
 	return app
 }
 
@@ -126,8 +126,12 @@ func (r *routeProductRepository) Create(_ context.Context, product models.Produc
 func (r *routeProductRepository) List(context.Context, *primitive.ObjectID) ([]models.Product, error) {
 	return []models.Product{}, nil
 }
-func (r *routeProductRepository) FindByID(context.Context, primitive.ObjectID) (models.Product, error) {
-	return models.Product{}, repositories.ErrProductNotFound
+func (r *routeProductRepository) FindByID(_ context.Context, id primitive.ObjectID) (models.Product, error) {
+	product, ok := r.products[id]
+	if !ok || !product.Active {
+		return models.Product{}, repositories.ErrProductNotFound
+	}
+	return product, nil
 }
 func (r *routeProductRepository) Update(context.Context, primitive.ObjectID, models.Product) (models.Product, error) {
 	return models.Product{}, repositories.ErrProductNotFound

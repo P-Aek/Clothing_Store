@@ -65,19 +65,28 @@ func main() {
 		log.Fatalf("ensure product indexes: %v", err)
 	}
 	cancelProductIndexes()
+	cartRepository := repositories.NewMongoCartRepository(dbClient.Database(cfg.MongoDatabase))
+	cartIndexCtx, cancelCartIndexes := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := cartRepository.EnsureIndexes(cartIndexCtx); err != nil {
+		cancelCartIndexes()
+		log.Fatalf("ensure cart indexes: %v", err)
+	}
+	cancelCartIndexes()
 	authService := services.NewAuthService(userRepository, cfg.JWTSecret)
 	categoryService := services.NewCategoryService(categoryRepository)
 	productService := services.NewProductService(productRepository, categoryRepository)
+	cartService := services.NewCartService(cartRepository, productRepository)
 	healthController := controllers.NewHealthController(dbClient)
 	authController := controllers.NewAuthController(authService)
 	categoryController := controllers.NewCategoryController(categoryService)
 	productController := controllers.NewProductController(productService)
+	cartController := controllers.NewCartController(cartService)
 
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(logger.New(logger.Config{
 		Format: "${time} | ${status} | ${latency} | ${method} | ${path} | ${ip}\n",
 	}))
-	routes.Register(app, healthController, authController, categoryController, productController, cfg.JWTSecret)
+	routes.Register(app, healthController, authController, categoryController, productController, cartController, cfg.JWTSecret)
 
 	serverErrors := make(chan error, 1)
 	go func() {

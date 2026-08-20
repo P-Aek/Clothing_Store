@@ -61,12 +61,23 @@
 - Product deletion is implemented as a soft delete
 - Tests for validation, category errors, not-found behavior, authentication, and authorization
 
-## Phase 4 — Cart
+## Phase 4 — Cart — Complete
 
-- Add item
-- Update quantity
+- Cart model and MongoDB repository
+- One cart per user with a unique user index
+- JWT-protected get cart endpoint
+- Add item with product, variant, quantity, and stock validation
+- Update item quantity with stock validation
 - Remove item
-- Get cart
+- Empty carts are returned for users without a persisted cart
+- Unit and route tests for authentication, validation, stock, and not-found behavior
+
+Endpoints:
+
+- `GET /api/cart/`
+- `POST /api/cart/items`
+- `PUT /api/cart/items/:productId/:variantId`
+- `DELETE /api/cart/items/:productId/:variantId`
 
 ## Phase 5 — Order
 
