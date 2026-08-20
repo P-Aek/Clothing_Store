@@ -98,3 +98,21 @@ Endpoints:
 - `GET /api/orders/:id`
 - `GET /api/admin/orders/`
 - `PUT /api/admin/orders/:id/status`
+
+## Phase 6 — API hardening and production readiness
+
+- Consistent global API error response format
+- Request IDs and structured application logging
+- Pagination and validated filtering for product, category, and order lists
+- Request body size limits and stricter request validation
+- Rate limiting for registration, login, and other public endpoints
+- Restrictive CORS and security response headers
+- Checkout idempotency keys to prevent duplicate orders on retries
+- Valid order-status transitions and cancellation stock restoration
+- MongoDB integration tests for transactions, stock, and concurrent checkout
+- Authentication and authorization test matrix
+- OpenAPI/Swagger API documentation
+- Readiness and liveness endpoints
+- Metrics for request latency, error rate, and checkout failures
+- Docker and CI configuration
+- Automated verification with `go test ./...`, `go vet ./...`, and `go test -race ./...`
