@@ -1,57 +1,71 @@
+```mermaid
 erDiagram
-
-    USER ||--|| CART : has
+    USER ||--o| CART : has
     USER ||--o{ ORDER : places
-
+    CATEGORY ||--o{ PRODUCT : contains
+    PRODUCT ||--|{ PRODUCT_VARIANT : embeds
     CART ||--o{ CART_ITEM : contains
     PRODUCT ||--o{ CART_ITEM : referenced_by
-
+    PRODUCT_VARIANT ||--o{ CART_ITEM : selected_as
     ORDER ||--|{ ORDER_ITEM : contains
-
-    PRODUCT ||--|{ VARIANT : has
+    PRODUCT ||--o{ ORDER_ITEM : originated_from
+    PRODUCT_VARIANT ||--o{ ORDER_ITEM : originated_from
 
     USER {
-        ObjectId _id PK
+        ObjectId id PK
         string name
-        string email
+        string email UK
         string passwordHash
         string role
         datetime createdAt
         datetime updatedAt
     }
 
-    PRODUCT {
-        ObjectId _id PK
+    CATEGORY {
+        ObjectId id PK
         string name
-        string description
-        number price
+        string slug UK
         boolean active
         datetime createdAt
         datetime updatedAt
     }
 
-    VARIANT {
-        ObjectId _id
+    PRODUCT {
+        ObjectId id PK
+        ObjectId categoryId FK
+        string name
+        string description
+        number price
+        string[] images
+        PRODUCT_VARIANT[] variants
+        boolean active
+        datetime createdAt
+        datetime updatedAt
+    }
+
+    PRODUCT_VARIANT {
+        ObjectId id PK
         string color
         string size
-        number stock
+        int stock
     }
 
     CART {
-        ObjectId _id PK
+        ObjectId id PK
         ObjectId userId FK
         datetime createdAt
         datetime updatedAt
     }
 
     CART_ITEM {
+        ObjectId cartId FK
         ObjectId productId FK
-        ObjectId variantId
-        number quantity
+        ObjectId variantId FK
+        int quantity
     }
 
     ORDER {
-        ObjectId _id PK
+        ObjectId id PK
         ObjectId userId FK
         number totalPrice
         string status
@@ -60,12 +74,14 @@ erDiagram
     }
 
     ORDER_ITEM {
-        ObjectId productId
-        ObjectId variantId
+        ObjectId orderId FK
+        ObjectId productId FK
+        ObjectId variantId FK
         string productName
         string color
         string size
         number price
-        number quantity
+        int quantity
         number subtotal
     }
+```
