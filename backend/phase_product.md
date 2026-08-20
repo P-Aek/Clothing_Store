@@ -41,7 +41,7 @@
 - Deletion is implemented as a soft delete to preserve product references
 - Tests for validation, duplicate slugs, not-found behavior, authentication, and authorization
 
-## Phase 3B — Product
+## Phase 3B — Product — Complete
 
 - Product model
 - Product variant
@@ -50,6 +50,16 @@
 - GET product/:id
 - Filter by category
 - Admin CRUD product
+
+- Product variants are embedded in product documents
+- Public product list and detail endpoints
+- Filter products by active category with `categoryId`
+- Admin mutations require JWT authentication and the `admin` role
+- Product, image, price, stock, and variant validation
+- Product category existence validation
+- Product category/active index
+- Product deletion is implemented as a soft delete
+- Tests for validation, category errors, not-found behavior, authentication, and authorization
 
 ## Phase 4 — Cart
 

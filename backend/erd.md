@@ -3,7 +3,7 @@ erDiagram
     USER ||--o| CART : has
     USER ||--o{ ORDER : places
     CATEGORY ||--o{ PRODUCT : contains
-    PRODUCT ||--|{ PRODUCT_VARIANT : has
+    PRODUCT ||--|{ PRODUCT_VARIANT : embeds
     CART ||--o{ CART_ITEM : contains
     PRODUCT ||--o{ CART_ITEM : referenced_by
     PRODUCT_VARIANT ||--o{ CART_ITEM : selected_as
@@ -37,6 +37,7 @@ erDiagram
         string description
         number price
         string[] images
+        PRODUCT_VARIANT[] variants
         boolean active
         datetime createdAt
         datetime updatedAt
@@ -44,7 +45,6 @@ erDiagram
 
     PRODUCT_VARIANT {
         ObjectId id PK
-        ObjectId productId FK
         string color
         string size
         int stock
