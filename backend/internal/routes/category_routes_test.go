@@ -68,7 +68,7 @@ func categoryTestApp() *fiber.App {
 	repo := newTestCategoryRepository()
 	controller := controllers.NewCategoryController(services.NewCategoryService(repo))
 	app := fiber.New()
-	Register(app, nil, nil, controller, nil, nil, "test-secret")
+	Register(app, nil, nil, controller, nil, nil, nil, "test-secret")
 	return app
 }
 

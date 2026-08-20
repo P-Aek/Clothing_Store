@@ -7,7 +7,7 @@ import (
 	"clothing-store-api/internal/middleware"
 )
 
-func Register(app *fiber.App, healthController *controllers.HealthController, authController *controllers.AuthController, categoryController *controllers.CategoryController, productController *controllers.ProductController, cartController *controllers.CartController, jwtSecret string) {
+func Register(app *fiber.App, healthController *controllers.HealthController, authController *controllers.AuthController, categoryController *controllers.CategoryController, productController *controllers.ProductController, cartController *controllers.CartController, orderController *controllers.OrderController, jwtSecret string) {
 	app.Get("/health", healthController.Health)
 
 	authRoutes := app.Group("/api/auth")
@@ -36,4 +36,12 @@ func Register(app *fiber.App, healthController *controllers.HealthController, au
 	cartRoutes.Post("/items", cartController.AddItem)
 	cartRoutes.Put("/items/:productId/:variantId", cartController.UpdateItem)
 	cartRoutes.Delete("/items/:productId/:variantId", cartController.RemoveItem)
+
+	orderRoutes := app.Group("/api/orders", middleware.JWT(jwtSecret))
+	orderRoutes.Post("/", orderController.Create)
+	orderRoutes.Get("/", orderController.List)
+	orderRoutes.Get("/:id", orderController.Get)
+	adminOrderRoutes := app.Group("/api/admin/orders", middleware.JWT(jwtSecret), middleware.RequireRole("admin"))
+	adminOrderRoutes.Get("/", orderController.AdminList)
+	adminOrderRoutes.Put("/:id/status", orderController.AdminUpdateStatus)
 }

@@ -27,7 +27,7 @@ func productTestApp() *fiber.App {
 	products := &routeProductRepository{products: map[primitive.ObjectID]models.Product{}}
 	controller := controllers.NewProductController(services.NewProductService(products, categories))
 	app := fiber.New()
-	Register(app, nil, nil, nil, controller, nil, "test-secret")
+	Register(app, nil, nil, nil, controller, nil, nil, "test-secret")
 	return app
 }
 

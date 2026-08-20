@@ -79,9 +79,22 @@ Endpoints:
 - `PUT /api/cart/items/:productId/:variantId`
 - `DELETE /api/cart/items/:productId/:variantId`
 
-## Phase 5 — Order
+## Phase 5 — Order — Complete
 
-- Create order from cart
-- Get user's orders
+- Create order from cart through a MongoDB transaction
+- Snapshot product and variant details into order items
+- Atomically decrement variant stock during checkout
+- Clear the cart only after the order and stock updates succeed
+- Get a user's orders and individual orders with ownership checks
 - Admin get all orders
-- Update order status
+- Admin update order status
+- Order indexes for user history and status-based administration
+- Unit and route tests for checkout, empty carts, stock failures, ownership, authentication, and authorization
+
+Endpoints:
+
+- `POST /api/orders/`
+- `GET /api/orders/`
+- `GET /api/orders/:id`
+- `GET /api/admin/orders/`
+- `PUT /api/admin/orders/:id/status`

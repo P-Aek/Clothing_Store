@@ -22,7 +22,7 @@ func TestCartRoutesRequireAuthentication(t *testing.T) {
 	products := &routeProductRepository{products: map[primitive.ObjectID]models.Product{}}
 	cartController := controllers.NewCartController(services.NewCartService(carts, products))
 	app := fiber.New()
-	Register(app, nil, nil, nil, nil, cartController, "test-secret")
+	Register(app, nil, nil, nil, nil, cartController, nil, "test-secret")
 
 	res, err := app.Test(httptest.NewRequest("GET", "/api/cart/", nil))
 	if err != nil {
@@ -42,7 +42,7 @@ func TestCartRoutesAddItemForAuthenticatedUser(t *testing.T) {
 	products.products[productID] = models.Product{ID: productID, Active: true, Variants: []models.ProductVariant{{ID: variantID, Stock: 3}}}
 	cartController := controllers.NewCartController(services.NewCartService(carts, products))
 	app := fiber.New()
-	Register(app, nil, nil, nil, nil, cartController, "test-secret")
+	Register(app, nil, nil, nil, nil, cartController, nil, "test-secret")
 	token, err := utils.GenerateJWT(userID.Hex(), "customer", "test-secret", time.Now())
 	if err != nil {
 		t.Fatal(err)
