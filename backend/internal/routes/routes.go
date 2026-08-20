@@ -3,11 +3,14 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 
+	"clothing-store-api/internal/apidocs"
 	"clothing-store-api/internal/controllers"
 	"clothing-store-api/internal/middleware"
 )
 
 func Register(app *fiber.App, healthController *controllers.HealthController, authController *controllers.AuthController, categoryController *controllers.CategoryController, productController *controllers.ProductController, cartController *controllers.CartController, orderController *controllers.OrderController, jwtSecret string) {
+	app.Use(apidocs.Handler())
+
 	app.Get("/health", healthController.Health)
 
 	authRoutes := app.Group("/api/auth")
