@@ -51,15 +51,24 @@ func main() {
 		log.Fatalf("ensure user indexes: %v", err)
 	}
 	cancelIndexes()
+	categoryRepository := repositories.NewMongoCategoryRepository(dbClient.Database(cfg.MongoDatabase))
+	categoryIndexCtx, cancelCategoryIndexes := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := categoryRepository.EnsureIndexes(categoryIndexCtx); err != nil {
+		cancelCategoryIndexes()
+		log.Fatalf("ensure category indexes: %v", err)
+	}
+	cancelCategoryIndexes()
 	authService := services.NewAuthService(userRepository, cfg.JWTSecret)
+	categoryService := services.NewCategoryService(categoryRepository)
 	healthController := controllers.NewHealthController(dbClient)
 	authController := controllers.NewAuthController(authService)
+	categoryController := controllers.NewCategoryController(categoryService)
 
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(logger.New(logger.Config{
 		Format: "${time} | ${status} | ${latency} | ${method} | ${path} | ${ip}\n",
 	}))
-	routes.Register(app, healthController, authController, cfg.JWTSecret)
+	routes.Register(app, healthController, authController, categoryController, cfg.JWTSecret)
 
 	serverErrors := make(chan error, 1)
 	go func() {
