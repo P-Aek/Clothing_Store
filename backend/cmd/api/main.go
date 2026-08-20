@@ -10,10 +10,15 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 
 	"clothing-store-api/internal/config"
+	"clothing-store-api/internal/controllers"
 	"clothing-store-api/internal/database"
+	"clothing-store-api/internal/repositories"
+	"clothing-store-api/internal/routes"
+	"clothing-store-api/internal/services"
 )
 
 func main() {
@@ -29,7 +34,7 @@ func main() {
 
 	dbClient, err := database.Connect(context.Background(), cfg.MongoURI)
 	if err != nil {
-		log.Fatalf("connect to MongoDB: %v", err)
+		log.Fatalf("failed to connect to MongoDB: %v", err)
 	}
 	defer func() {
 		closeCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
@@ -39,10 +44,22 @@ func main() {
 		}
 	}()
 
+	userRepository := repositories.NewMongoUserRepository(dbClient.Database(cfg.MongoDatabase))
+	indexCtx, cancelIndexes := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := userRepository.EnsureIndexes(indexCtx); err != nil {
+		cancelIndexes()
+		log.Fatalf("ensure user indexes: %v", err)
+	}
+	cancelIndexes()
+	authService := services.NewAuthService(userRepository, cfg.JWTSecret)
+	healthController := controllers.NewHealthController(dbClient)
+	authController := controllers.NewAuthController(authService)
+
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
-	app.Get("/health", func(c *fiber.Ctx) error {
-		return c.JSON(fiber.Map{"status": "ok"})
-	})
+	app.Use(logger.New(logger.Config{
+		Format: "${time} | ${status} | ${latency} | ${method} | ${path} | ${ip}\n",
+	}))
+	routes.Register(app, healthController, authController, cfg.JWTSecret)
 
 	serverErrors := make(chan error, 1)
 	go func() {
