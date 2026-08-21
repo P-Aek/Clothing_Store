@@ -61,16 +61,58 @@
 - Product deletion is implemented as a soft delete
 - Tests for validation, category errors, not-found behavior, authentication, and authorization
 
-## Phase 4 — Cart
+## Phase 4 — Cart — Complete
 
-- Add item
-- Update quantity
+- Cart model and MongoDB repository
+- One cart per user with a unique user index
+- JWT-protected get cart endpoint
+- Add item with product, variant, quantity, and stock validation
+- Update item quantity with stock validation
 - Remove item
-- Get cart
+- Empty carts are returned for users without a persisted cart
+- Unit and route tests for authentication, validation, stock, and not-found behavior
 
-## Phase 5 — Order
+Endpoints:
 
-- Create order from cart
-- Get user's orders
+- `GET /api/cart/`
+- `POST /api/cart/items`
+- `PUT /api/cart/items/:productId/:variantId`
+- `DELETE /api/cart/items/:productId/:variantId`
+
+## Phase 5 — Order — Complete
+
+- Create order from cart through a MongoDB transaction
+- Snapshot product and variant details into order items
+- Atomically decrement variant stock during checkout
+- Clear the cart only after the order and stock updates succeed
+- Get a user's orders and individual orders with ownership checks
 - Admin get all orders
-- Update order status
+- Admin update order status
+- Order indexes for user history and status-based administration
+- Unit and route tests for checkout, empty carts, stock failures, ownership, authentication, and authorization
+
+Endpoints:
+
+- `POST /api/orders/`
+- `GET /api/orders/`
+- `GET /api/orders/:id`
+- `GET /api/admin/orders/`
+- `PUT /api/admin/orders/:id/status`
+
+## Phase 6 — API hardening and production readiness
+
+- Consistent global API error response format
+- Request IDs and structured application logging
+- Pagination and validated filtering for product, category, and order lists
+- Request body size limits and stricter request validation
+- Rate limiting for registration, login, and other public endpoints
+- Restrictive CORS and security response headers
+- Checkout idempotency keys to prevent duplicate orders on retries
+- Valid order-status transitions and cancellation stock restoration
+- MongoDB integration tests for transactions, stock, and concurrent checkout
+- Authentication and authorization test matrix
+- OpenAPI/Swagger API documentation
+- Readiness and liveness endpoints
+- Metrics for request latency, error rate, and checkout failures
+- Docker and CI configuration
+- Automated verification with `go test ./...`, `go vet ./...`, and `go test -race ./...`

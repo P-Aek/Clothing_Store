@@ -3,11 +3,14 @@ package routes
 import (
 	"github.com/gofiber/fiber/v2"
 
+	"clothing-store-api/internal/apidocs"
 	"clothing-store-api/internal/controllers"
 	"clothing-store-api/internal/middleware"
 )
 
-func Register(app *fiber.App, healthController *controllers.HealthController, authController *controllers.AuthController, categoryController *controllers.CategoryController, productController *controllers.ProductController, jwtSecret string) {
+func Register(app *fiber.App, healthController *controllers.HealthController, authController *controllers.AuthController, categoryController *controllers.CategoryController, productController *controllers.ProductController, cartController *controllers.CartController, orderController *controllers.OrderController, jwtSecret string) {
+	app.Use(apidocs.Handler())
+
 	app.Get("/health", healthController.Health)
 
 	authRoutes := app.Group("/api/auth")
@@ -30,4 +33,18 @@ func Register(app *fiber.App, healthController *controllers.HealthController, au
 	adminProductRoutes.Post("/", productController.Create)
 	adminProductRoutes.Put("/:id", productController.Update)
 	adminProductRoutes.Delete("/:id", productController.Delete)
+
+	cartRoutes := app.Group("/api/cart", middleware.JWT(jwtSecret))
+	cartRoutes.Get("/", cartController.Get)
+	cartRoutes.Post("/items", cartController.AddItem)
+	cartRoutes.Put("/items/:productId/:variantId", cartController.UpdateItem)
+	cartRoutes.Delete("/items/:productId/:variantId", cartController.RemoveItem)
+
+	orderRoutes := app.Group("/api/orders", middleware.JWT(jwtSecret))
+	orderRoutes.Post("/", orderController.Create)
+	orderRoutes.Get("/", orderController.List)
+	orderRoutes.Get("/:id", orderController.Get)
+	adminOrderRoutes := app.Group("/api/admin/orders", middleware.JWT(jwtSecret), middleware.RequireRole("admin"))
+	adminOrderRoutes.Get("/", orderController.AdminList)
+	adminOrderRoutes.Put("/:id/status", orderController.AdminUpdateStatus)
 }

@@ -67,6 +67,7 @@ erDiagram
     ORDER {
         ObjectId id PK
         ObjectId userId FK
+        ORDER_ITEM[] items
         number totalPrice
         string status
         datetime createdAt

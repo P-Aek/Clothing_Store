@@ -65,19 +65,37 @@ func main() {
 		log.Fatalf("ensure product indexes: %v", err)
 	}
 	cancelProductIndexes()
+	cartRepository := repositories.NewMongoCartRepository(dbClient.Database(cfg.MongoDatabase))
+	cartIndexCtx, cancelCartIndexes := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := cartRepository.EnsureIndexes(cartIndexCtx); err != nil {
+		cancelCartIndexes()
+		log.Fatalf("ensure cart indexes: %v", err)
+	}
+	cancelCartIndexes()
+	orderRepository := repositories.NewMongoOrderRepository(dbClient.Database(cfg.MongoDatabase))
+	orderIndexCtx, cancelOrderIndexes := context.WithTimeout(context.Background(), 10*time.Second)
+	if err := orderRepository.EnsureIndexes(orderIndexCtx); err != nil {
+		cancelOrderIndexes()
+		log.Fatalf("ensure order indexes: %v", err)
+	}
+	cancelOrderIndexes()
 	authService := services.NewAuthService(userRepository, cfg.JWTSecret)
 	categoryService := services.NewCategoryService(categoryRepository)
 	productService := services.NewProductService(productRepository, categoryRepository)
+	cartService := services.NewCartService(cartRepository, productRepository)
+	orderService := services.NewOrderService(orderRepository, cartRepository, productRepository)
 	healthController := controllers.NewHealthController(dbClient)
 	authController := controllers.NewAuthController(authService)
 	categoryController := controllers.NewCategoryController(categoryService)
 	productController := controllers.NewProductController(productService)
+	cartController := controllers.NewCartController(cartService)
+	orderController := controllers.NewOrderController(orderService)
 
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(logger.New(logger.Config{
 		Format: "${time} | ${status} | ${latency} | ${method} | ${path} | ${ip}\n",
 	}))
-	routes.Register(app, healthController, authController, categoryController, productController, cfg.JWTSecret)
+	routes.Register(app, healthController, authController, categoryController, productController, cartController, orderController, cfg.JWTSecret)
 
 	serverErrors := make(chan error, 1)
 	go func() {
