@@ -4,7 +4,7 @@ Backend REST API for a clothing store, built with Go, Fiber, and MongoDB. It pro
 
 ## Features
 
-- Customer registration and login with JWT authentication
+- Customer registration, login, and stateless logout with JWT authentication
 - Password hashing with bcrypt
 - Customer and admin role authorization
 - Category and product management with soft deletion
@@ -152,6 +152,9 @@ The JWT contains the user ID as its subject and includes the user's role. Authen
 | `POST` | `/api/auth/register` | Public | Register a customer account. |
 | `POST` | `/api/auth/login` | Public | Log in and receive a JWT. |
 | `GET` | `/api/auth/me` | Authenticated | Return the authenticated user ID. |
+| `POST` | `/api/auth/logout` | Authenticated | Acknowledge logout; the client must discard its JWT. |
+
+JWT access tokens are stateless and remain cryptographically valid until they expire. The logout endpoint validates the current token and returns `204 No Content`; clients must then remove the token from their local storage. Immediate server-side revocation would require a shared revocation store or a refresh-token session design.
 
 Example registration request:
 

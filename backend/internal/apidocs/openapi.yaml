@@ -86,6 +86,16 @@ paths:
                 properties:
                   userId: { $ref: '#/components/schemas/ObjectId' }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/auth/logout:
+    post:
+      tags: [Authentication]
+      summary: Log out the current client
+      description: Validates the current JWT. The client must discard the token because access tokens are stateless and are not revoked server-side.
+      operationId: logout
+      security: [{ bearerAuth: [] }]
+      responses:
+        '204': { description: Logout acknowledged; discard the bearer token }
+        '401': { $ref: '#/components/responses/Unauthorized' }
   /api/categories/:
     get:
       tags: [Categories]

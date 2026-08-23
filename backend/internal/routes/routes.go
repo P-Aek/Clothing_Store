@@ -17,6 +17,7 @@ func Register(app *fiber.App, healthController *controllers.HealthController, au
 	authRoutes.Post("/register", authController.Register)
 	authRoutes.Post("/login", authController.Login)
 	authRoutes.Get("/me", middleware.JWT(jwtSecret), authController.Me)
+	authRoutes.Post("/logout", middleware.JWT(jwtSecret), authController.Logout)
 
 	categoryRoutes := app.Group("/api/categories")
 	categoryRoutes.Get("/", categoryController.List)

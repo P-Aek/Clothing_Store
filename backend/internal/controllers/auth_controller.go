@@ -72,3 +72,7 @@ func (h *AuthController) Me(c *fiber.Ctx) error {
 	}
 	return c.JSON(fiber.Map{"userId": id.Hex()})
 }
+
+func (h *AuthController) Logout(c *fiber.Ctx) error {
+	return c.SendStatus(fiber.StatusNoContent)
+}
