@@ -94,9 +94,9 @@ func main() {
 
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "*",
-		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
-		AllowHeaders: "Origin,Content-Type,Accept,Authorization",
+		AllowOrigins: cfg.FrontendURL,
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
 	}))
 	app.Use(logger.New(logger.Config{
 		Format: "${time} | ${status} | ${latency} | ${method} | ${path} | ${ip}\n",

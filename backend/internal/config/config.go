@@ -12,6 +12,7 @@ type Config struct {
 	MongoURI      string
 	MongoDatabase string
 	JWTSecret     string
+	FrontendURL   string
 }
 
 func Load() (Config, error) {
@@ -20,10 +21,14 @@ func Load() (Config, error) {
 		MongoURI:      os.Getenv("MONGO_URI"),
 		MongoDatabase: os.Getenv("MONGO_DATABASE"),
 		JWTSecret:     os.Getenv("JWT_SECRET"),
+		FrontendURL:   os.Getenv("FRONTEND_URL"),
 	}
 
 	if cfg.Port == "" {
 		cfg.Port = "8080"
+	}
+	if strings.TrimSpace(cfg.FrontendURL) == "" {
+		cfg.FrontendURL = "http://localhost:5173"
 	}
 
 	missing := make([]string, 0, 3)
