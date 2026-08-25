@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/gofiber/fiber/v2"
+	"github.com/gofiber/fiber/v2/middleware/cors"
 	"github.com/gofiber/fiber/v2/middleware/logger"
 	"github.com/joho/godotenv"
 
@@ -92,6 +93,11 @@ func main() {
 	orderController := controllers.NewOrderController(orderService)
 
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
+	app.Use(cors.New(cors.Config{
+		AllowOrigins: cfg.FrontendURL,
+		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
+		AllowMethods: "GET, POST, PUT, PATCH, DELETE, OPTIONS",
+	}))
 	app.Use(logger.New(logger.Config{
 		Format: "${time} | ${status} | ${latency} | ${method} | ${path} | ${ip}\n",
 	}))
