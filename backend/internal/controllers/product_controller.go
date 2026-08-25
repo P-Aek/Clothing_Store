@@ -32,6 +32,7 @@ type productRequest struct {
 	Price       float64                 `json:"price"`
 	Images      []string                `json:"images"`
 	Variants    []productVariantRequest `json:"variants"`
+	Active      *bool                   `json:"active"`
 }
 
 func (h *ProductController) List(c *fiber.Ctx) error {
@@ -131,7 +132,7 @@ func toProductInput(request productRequest) services.ProductInput {
 	}
 	return services.ProductInput{
 		CategoryID: request.CategoryID, Name: request.Name, Description: request.Description,
-		Price: request.Price, Images: request.Images, Variants: variants,
+		Price: request.Price, Images: request.Images, Variants: variants, Active: request.Active,
 	}
 }
 
