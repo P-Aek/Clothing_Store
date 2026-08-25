@@ -1,69 +1,31 @@
 <template>
-  <div class="container" style="max-width: 800px; margin: 40px auto; padding: 0 20px;">
+  <div class="container cart-container">
     <h2>ตะกร้าสินค้า</h2>
-
-    <div v-if="store.cart.length === 0" class="card" style="text-align: center; padding: 40px;">
-      <p>ยังไม่มีสินค้าในตะกร้า</p>
-      <router-link to="/" class="btn btn-primary" style="display: inline-block; margin-top: 10px; text-decoration: none;">ไปเลือกซื้อสินค้า</router-link>
-    </div>
-
+    <div v-if="store.cart.length === 0" class="card empty"><p>ยังไม่มีสินค้าในตะกร้า</p><router-link to="/" class="btn btn-primary">ไปเลือกซื้อสินค้า</router-link></div>
     <div v-else>
-      <div v-for="(item, index) in store.cart" :key="index" class="card cart-item-card">
-        <div class="cart-item-left">
-          <img v-if="item.image" :src="item.image" alt="thumb" class="cart-img" />
-          <div v-else class="cart-img-placeholder">👕</div>
-          <div>
-            <h3 style="margin: 0; font-size: 1.05rem;">{{ item.name }}</h3>
-            <p style="margin: 4px 0 0 0; color: #64748b; font-size: 0.85rem;">ไซส์: {{ item.size || '-' }} | สี: {{ item.color || '-' }}</p>
-          </div>
-        </div>
-        <p class="cart-price">฿{{ item.price }}</p>
+      <div v-for="item in store.cart" :key="`${item.productId}-${item.variantId}`" class="card cart-item-card">
+        <div class="cart-item-left"><img v-if="item.image" :src="item.image" :alt="item.name" class="cart-img" /><div v-else class="cart-img-placeholder">👕</div><div><h3>{{ item.name }}</h3><p>ไซส์: {{ item.size || '-' }} | สี: {{ item.color || '-' }}</p></div></div>
+        <div class="quantity"><button @click="store.updateCartItem(item, item.quantity - 1)">−</button><span>{{ item.quantity }}</span><button @click="store.updateCartItem(item, item.quantity + 1)">+</button></div>
+        <strong class="cart-price">฿{{ (Number(item.price) * Number(item.quantity)).toFixed(2) }}</strong>
+        <button class="remove" @click="store.removeCartItem(item)">ลบ</button>
       </div>
-
-      <div class="card" style="margin-top: 20px; background: #f8fafc; padding: 20px;">
-        <h3>ราคารวมทั้งหมด: <span style="color: #2563eb;">฿{{ store.cartTotal }}</span></h3>
-        
-        <div style="margin-top: 15px; display: flex; gap: 10px;">
-          <button class="btn btn-primary" @click="checkout">สั่งซื้อสินค้า</button>
-          <button class="btn btn-danger" @click="store.clearCart()">ล้างตะกร้า</button>
-        </div>
-      </div>
+      <div class="card summary"><h3>ราคารวมทั้งหมด: <span>฿{{ store.cartTotal.toFixed(2) }}</span></h3><div class="actions"><button class="btn btn-primary" :disabled="loading" @click="checkout">สั่งซื้อสินค้า</button><button class="btn btn-danger" @click="store.clearCart">ล้างตะกร้า</button></div></div>
     </div>
   </div>
 </template>
 
 <script setup>
-import { useAppStore } from '../stores/appStore'
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-
-const store = useAppStore()
-const router = useRouter()
-
-const checkout = () => {
-  if (!store.currentUser) {
-    store.showNotification('กรุณาเข้าสู่ระบบหรือสมัครสมาชิกก่อนทำการสั่งซื้อ', 'error')
-    router.push('/account')
-    return
-  }
-
-  // 📦 บันทึกคำสั่งซื้อลง Store (ใน placeOrder จะเรียก Toast แจ้งเตือนให้อัตโนมัติ)
-  store.placeOrder({
-    name: store.currentUser.name || 'ลูกค้าสมาชิก',
-    email: store.currentUser.email,
-    phone: store.currentUser.phone || '08X-XXX-XXXX'
-  })
-
-  router.push('/') // 🛍️ พาลูกค้ากลับหน้าร้านค้า
+import { useAppStore } from '../stores/appStore'
+const store = useAppStore(); const router = useRouter(); const loading = ref(false)
+async function checkout() {
+  if (!store.isAuthenticated) { store.showNotification('กรุณาเข้าสู่ระบบก่อนทำการสั่งซื้อ', 'error'); router.push('/account'); return }
+  loading.value = true
+  try { await store.checkout(); router.push('/') } catch { /* store displays the API error */ } finally { loading.value = false }
 }
 </script>
 
 <style scoped>
-.cart-item-card { margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; padding: 12px 20px; background: white; border-radius: 8px; border: 1px solid #e2e8f0; }
-.cart-item-left { display: flex; align-items: center; gap: 16px; }
-.cart-img { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; }
-.cart-img-placeholder { width: 56px; height: 56px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }
-.cart-price { font-weight: 700; font-size: 1.1rem; color: #0f172a; margin: 0; }
-.btn { padding: 10px 18px; border-radius: 6px; font-weight: 600; cursor: pointer; border: none; }
-.btn-primary { background: #2563eb; color: white; }
-.btn-danger { background: #ef4444; color: white; }
+.cart-container { max-width: 800px; margin: 40px auto; padding: 0 20px; }.empty { text-align: center; padding: 40px; }.cart-item-card { margin-bottom: 12px; display: flex; gap: 16px; justify-content: space-between; align-items: center; padding: 12px 20px; }.cart-item-left { display: flex; align-items: center; gap: 16px; flex: 1; }.cart-item-left h3 { margin: 0; font-size: 1.05rem; }.cart-item-left p { margin: 4px 0 0; color: #64748b; font-size: .85rem; }.cart-img, .cart-img-placeholder { width: 56px; height: 56px; object-fit: cover; border-radius: 6px; }.cart-img-placeholder { background: #f1f5f9; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; }.quantity { display: flex; gap: 8px; align-items: center; }.quantity button { width: 28px; height: 28px; border: 1px solid #cbd5e1; background: #fff; border-radius: 5px; cursor: pointer; }.cart-price { min-width: 90px; text-align: right; }.remove { border: 0; background: none; color: #dc2626; cursor: pointer; }.summary { margin-top: 20px; background: #f8fafc; padding: 20px; }.summary span { color: #2563eb; }.actions { margin-top: 15px; display: flex; gap: 10px; }
 </style>

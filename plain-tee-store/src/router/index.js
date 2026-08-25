@@ -11,33 +11,16 @@ const routes = [
   { path: '/cart', name: 'cart', component: CartView },
   { path: '/account', name: 'account', component: AccountView },
   { path: '/register', name: 'register', component: RegisterView },
-  { 
-    path: '/admin', 
-    name: 'admin', 
-    component: AdminView,
-    meta: { requiresAdmin: true } // 🔒 กำหนดสิทธิ์เฉพาะ Admin เท่านั้น
-  }
+  { path: '/admin', name: 'admin', component: AdminView, meta: { requiresAdmin: true } }
 ]
 
-const router = createRouter({
-  history: createWebHistory(),
-  routes
-})
+const router = createRouter({ history: createWebHistory(), routes })
 
-// 🛡️ Navigation Guard (ตรวจสิทธิ์ก่อนเปลี่ยนหน้า)
-router.beforeEach((to, from, next) => {
+router.beforeEach(async (to) => {
   const store = useAppStore()
-
-  if (to.meta.requiresAdmin) {
-    if (!store.isAdmin) {
-      alert('คุณไม่มีสิทธิ์เข้าถึงหน้า Admin Control Panel')
-      next('/account') // ดีดกลับไปหน้าเข้าสู่ระบบทันที
-    } else {
-      next()
-    }
-  } else {
-    next()
-  }
+  if (!store.isAuthRestored) await store.restoreSession()
+  if (to.meta.requiresAdmin && !store.isAdmin) return store.isAuthenticated ? '/' : '/account'
+  return true
 })
 
 export default router

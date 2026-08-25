@@ -1,328 +1,60 @@
 <template>
   <div class="admin-wrapper">
-    <header class="admin-header">
-      <div class="admin-header-content">
-        <div class="admin-brand">
-          <span class="shield-icon">🛡️</span>
-          <div>
-            <h1>Admin Control Panel</h1>
-            <p class="admin-subtitle">ระบบจัดการสต็อก หมวดหมู่ และรายการสั่งซื้อ Plain Tee Store</p>
-          </div>
-        </div>
-        <div class="header-actions">
-          <router-link to="/" class="btn btn-outline-light">← กลับไปหน้าร้านค้า</router-link>
-          <button @click="handleLogout" class="btn btn-danger-sm">ออกจากระบบ</button>
-        </div>
-      </div>
-    </header>
-
+    <header class="admin-header"><div class="admin-header-content"><div><h1>Admin Control Panel</h1><p class="admin-subtitle">จัดการสินค้า หมวดหมู่ และคำสั่งซื้อ</p></div><div class="header-actions"><router-link to="/" class="btn-outline-light">← กลับหน้าร้านค้า</router-link><button @click="handleLogout" class="btn-danger-sm">ออกจากระบบ</button></div></div></header>
     <main class="admin-container">
-      <!-- 📌 ปุ่มสลับโหมด: จัดการสินค้า / จัดการออเดอร์ -->
-      <div class="tab-menu mb-4">
-        <button class="tab-btn" :class="{ active: activeTab === 'products' }" @click="activeTab = 'products'">📦 จัดการสินค้า & หมวดหมู่</button>
-        <button class="tab-btn" :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'">📑 รายการสั่งซื้อ (Orders) [{{ store.orders.length }}]</button>
-      </div>
-
-      <!-- ---------------- TAB 1: จัดการสินค้า & หมวดหมู่ ---------------- -->
+      <div class="tab-menu"><button class="tab-btn" :class="{ active: activeTab === 'products' }" @click="activeTab = 'products'">📦 จัดการสินค้า</button><button class="tab-btn" :class="{ active: activeTab === 'orders' }" @click="activeTab = 'orders'; loadOrders()">📑 คำสั่งซื้อ ({{ store.orders.length }})</button></div>
       <div v-if="activeTab === 'products'" class="admin-grid">
         <div class="left-col">
-          <!-- CRUD Category -->
-          <section class="card admin-card mb-4">
-            <h2>🏷️ จัดการหมวดหมู่ (Category)</h2>
-            <div class="admin-form">
-              <div class="form-group row-group">
-                <input type="text" v-model="newCatName" placeholder="ชื่อหมวดหมู่ใหม่..." />
-                <button type="button" class="btn btn-dark" @click="handleAddCategory">เพิ่ม</button>
-              </div>
-              <div class="cat-tags">
-                <span v-for="cat in store.categories" :key="cat" class="cat-chip">
-                  {{ cat }}
-                  <button v-if="cat !== 'ทั้งหมด'" @click="store.deleteCategory(cat)" class="cat-del">×</button>
-                </span>
-              </div>
-            </div>
-          </section>
-
-          <!-- ฟอร์ม เพิ่ม / แก้ไข สินค้า -->
-          <section class="card admin-card">
-            <h2>{{ isEditing ? '✏️ แก้ไขสินค้า' : '➕ เพิ่มสินค้าใหม่' }}</h2>
-            <div class="admin-form">
-              <div class="form-group">
-                <label>ชื่อสินค้า</label>
-                <input type="text" v-model="form.name" placeholder="เช่น Plain Tee - Oversized" />
-              </div>
-
-              <div class="form-group">
-                <label>หมวดหมู่</label>
-                <select v-model="form.category" class="form-select">
-                  <option v-for="cat in store.categories.filter(c => c !== 'ทั้งหมด')" :key="cat" :value="cat">
-                    {{ cat }}
-                  </option>
-                </select>
-              </div>
-
-              <div class="form-group">
-                <label>URL รูปภาพสินค้า</label>
-                <input type="text" v-model="form.image" placeholder="https://example.com/image.jpg" />
-              </div>
-
-              <div class="form-row">
-                <div class="form-group">
-                  <label>ราคา (บาท)</label>
-                  <input type="number" v-model="form.price" placeholder="290" />
-                </div>
-                <div class="form-group">
-                  <label>ไซส์</label>
-                  <select v-model="form.size" class="form-select">
-                    <option value="S">S</option>
-                    <option value="M">M</option>
-                    <option value="L">L</option>
-                    <option value="XL">XL</option>
-                    <option value="Free Size">Free Size</option>
-                  </select>
-                </div>
-              </div>
-
-              <button type="button" class="btn btn-dark btn-block" @click="handleSubmitProduct">
-                {{ isEditing ? 'อัปเดตข้อมูลสินค้า' : 'บันทึกสินค้าลงระบบ' }}
-              </button>
-              <button v-if="isEditing" type="button" class="btn btn-outline btn-block" @click="resetForm" style="margin-top: 8px;">
-                ยกเลิกการแก้ไข
-              </button>
-            </div>
-          </section>
+          <section class="card admin-card"><h2>🏷️ จัดการหมวดหมู่</h2><div class="row-group"><input v-model.trim="newCategory" placeholder="ชื่อหมวดหมู่ใหม่" /><button class="btn btn-dark" @click="createCategory">เพิ่ม</button></div><div class="cat-tags"><span v-for="category in store.categories" :key="category.id" class="cat-chip">{{ category.name }}<button class="cat-del" @click="store.deleteCategory(category)">×</button></span></div></section>
+          <section class="card admin-card"><h2>{{ editing ? '✏️ แก้ไขสินค้า' : '➕ เพิ่มสินค้าใหม่' }}</h2><form @submit.prevent="submitProduct">
+            <div class="form-group"><label>ชื่อสินค้า</label><input v-model.trim="form.name" required maxlength="200" /></div>
+            <div class="form-group"><label>รายละเอียด</label><textarea v-model.trim="form.description" maxlength="5000" rows="3"></textarea></div>
+            <div class="form-group"><label>หมวดหมู่</label><select v-model="form.categoryId" required class="form-select"><option value="" disabled>เลือกหมวดหมู่</option><option v-for="category in store.categories" :key="category.id" :value="category.id">{{ category.name }}</option></select></div>
+            <div class="form-row"><div class="form-group"><label>ราคา (บาท)</label><input v-model.number="form.price" type="number" min="0.01" step="0.01" required /></div><label class="active-toggle"><input v-model="form.active" type="checkbox" /> เปิดใช้งาน</label></div>
+            <div class="dynamic-section"><div class="section-title-row"><label>URL รูปภาพ</label><button type="button" class="btn-sm" @click="form.images.push('')">+ เพิ่ม URL</button></div><div v-for="(image, index) in form.images" :key="index" class="dynamic-row"><input v-model.trim="form.images[index]" type="url" placeholder="https://example.com/image.jpg" /><button type="button" class="btn-delete" @click="removeImage(index)">ลบ</button></div></div>
+            <div class="dynamic-section"><div class="section-title-row"><label>ตัวเลือกสินค้า</label><button type="button" class="btn-sm" @click="addVariant">+ เพิ่มตัวเลือก</button></div><div v-for="(variant, index) in form.variants" :key="index" class="variant-row"><input v-model.trim="variant.color" placeholder="สี" required /><input v-model.trim="variant.size" placeholder="ไซส์" required /><input v-model.number="variant.stock" type="number" min="0" step="1" placeholder="สต็อก" required /><button type="button" class="btn-delete" @click="removeVariant(index)" :disabled="form.variants.length === 1">ลบ</button></div></div>
+            <p v-if="validationError" class="validation-error">{{ validationError }}</p><button type="submit" class="btn-block" :disabled="saving">{{ saving ? 'กำลังบันทึก...' : (editing ? 'อัปเดตสินค้า' : 'บันทึกสินค้า') }}</button><button v-if="editing" type="button" class="btn-outline btn-block" @click="resetForm">ยกเลิกการแก้ไข</button>
+          </form></section>
         </div>
-
-        <!-- ตารางสินค้า -->
-        <section class="card admin-card">
-          <div class="section-title-row">
-            <h2>📦 รายการสินค้าในระบบ</h2>
-            <button class="btn btn-sm btn-outline" @click="store.fetchProducts">🔄 รีเฟรช</button>
-          </div>
-
-          <div v-if="store.products.length === 0" class="state-msg">ยังไม่มีรายการสินค้า</div>
-          <div v-else class="table-responsive">
-            <table class="admin-table">
-              <thead>
-                <tr>
-                  <th>รูปภาพ</th>
-                  <th>ชื่อสินค้า</th>
-                  <th>หมวดหมู่</th>
-                  <th>ไซส์</th>
-                  <th>ราคา</th>
-                  <th style="text-align: center;">จัดการ</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="(item, index) in store.products" :key="item.id || item._id || index">
-                  <td>
-                    <img v-if="item.image" :src="item.image" alt="preview" class="admin-img-thumb" />
-                    <div v-else class="admin-img-placeholder">ไม่มีรูป</div>
-                  </td>
-                  <td class="font-bold">{{ item.name }}</td>
-                  <td><span class="tag cat-tag">{{ item.category || 'ทั่วไป' }}</span></td>
-                  <td><span class="tag">{{ item.size || '-' }}</span></td>
-                  <td class="price-text">฿{{ item.price }}</td>
-                  <td style="text-align: center; gap: 6px; display: flex; justify-content: center;">
-                    <button type="button" class="btn-edit" @click="startEdit(item)">แก้ไข</button>
-                    <button type="button" class="btn-delete" @click="store.deleteProduct(item.id || item._id, index)">ลบ</button>
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <section class="card admin-card"><div class="section-title-row"><h2>📦 รายการสินค้า</h2><button class="btn-sm" @click="store.fetchProducts">รีเฟรช</button></div><div v-if="!store.products.length" class="state-msg">ยังไม่มีรายการสินค้า</div><div v-else class="table-responsive"><table class="admin-table"><thead><tr><th>รูปภาพ</th><th>ชื่อ</th><th>หมวดหมู่</th><th>ราคา</th><th>สถานะ</th><th>จัดการ</th></tr></thead><tbody><tr v-for="item in store.products" :key="item.id"><td><img v-if="item.images?.[0]" :src="item.images[0]" class="admin-img-thumb" /><span v-else>ไม่มีรูป</span></td><td>{{ item.name }}</td><td>{{ categoryName(item.categoryId) }}</td><td>฿{{ item.price }}</td><td>{{ item.active ? 'เปิดใช้งาน' : 'ปิดใช้งาน' }}</td><td><button class="btn-edit" @click="startEdit(item)">แก้ไข</button><button class="btn-delete" @click="store.deleteProduct(item.id)">ลบ</button></td></tr></tbody></table></div></section>
       </div>
-
-      <!-- ---------------- TAB 2: ดู Order & อัปเดตสถานะ ---------------- -->
-      <div v-else-if="activeTab === 'orders'" class="card admin-card">
-        <h2>📑 รายการสั่งซื้อของลูกค้า</h2>
-        <div v-if="store.orders.length === 0" class="state-msg">ยังไม่มีรายการสั่งซื้อเข้ามา</div>
-        <div v-else class="table-responsive">
-          <table class="admin-table">
-            <thead>
-              <tr>
-                <th>เลขที่ Order</th>
-                <th>วันที่สั่งซื้อ</th>
-                <th>ลูกค้า</th>
-                <th>รายการสินค้า</th>
-                <th>ยอดรวม</th>
-                <th>สถานะ</th>
-                <th>อัปเดตสถานะ</th>
-              </tr>
-            </thead>
-            <tbody>
-              <tr v-for="ord in store.orders" :key="ord.id">
-                <td class="font-bold">{{ ord.id }}</td>
-                <td style="font-size: 0.8rem; color: #64748b;">{{ ord.createdAt }}</td>
-                <td>
-                  <div><strong>{{ ord.customer?.name || 'ลูกค้าทั่วไป' }}</strong></div>
-                  <div style="font-size: 0.8rem; color: #64748b;">{{ ord.customer?.phone || '-' }}</div>
-                </td>
-                <td>
-                  <ul style="padding-left: 16px; margin: 0; font-size: 0.85rem;">
-                    <li v-for="(it, i) in ord.items" :key="i">{{ it.name }} (฿{{ it.price }})</li>
-                  </ul>
-                </td>
-                <td class="price-text">฿{{ ord.totalPrice }}</td>
-                <td>
-                  <span class="status-badge" :class="ord.status.toLowerCase()">{{ ord.status }}</span>
-                </td>
-                <td>
-                  <select :value="ord.status" @change="e => store.updateOrderStatus(ord.id, e.target.value)" class="form-select-sm">
-                    <option value="Pending">Pending (รอดำเนินการ)</option>
-                    <option value="Processing">Processing (กำลังจัดส่ง)</option>
-                    <option value="Completed">Completed (สำเร็จ)</option>
-                    <option value="Cancelled">Cancelled (ยกเลิก)</option>
-                  </select>
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
-      </div>
-
+      <section v-else class="card admin-card"><div class="section-title-row"><h2>📑 คำสั่งซื้อของลูกค้า</h2><button class="btn-sm" @click="loadOrders">รีเฟรช</button></div><div v-if="!store.orders.length" class="state-msg">ยังไม่มีรายการสั่งซื้อ</div><div v-else class="table-responsive"><table class="admin-table"><thead><tr><th>เลขที่</th><th>วันที่</th><th>รายการ</th><th>ยอดรวม</th><th>สถานะ</th><th>อัปเดต</th></tr></thead><tbody><tr v-for="order in store.orders" :key="order.id"><td>{{ order.id }}</td><td>{{ formatDate(order.createdAt) }}</td><td><ul><li v-for="item in order.items" :key="`${item.productId}-${item.variantId}`">{{ item.productName }} × {{ item.quantity }}</li></ul></td><td>฿{{ order.totalPrice }}</td><td>{{ order.status }}</td><td><select class="form-select-sm" :value="order.status" @change="store.updateOrderStatus(order.id, $event.target.value)"><option v-for="status in statuses" :key="status" :value="status">{{ status }}</option></select></td></tr></tbody></table></div></section>
     </main>
   </div>
 </template>
 
 <script setup>
-import { ref, reactive, onMounted } from 'vue'
+import { onMounted, reactive, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { useAppStore } from '../stores/appStore'
-
-const store = useAppStore()
-const router = useRouter()
-
-const activeTab = ref('products')
-const newCatName = ref('')
-const isEditing = ref(false)
-const currentEditId = ref(null)
-
-const form = reactive({
-  name: '',
-  category: 'เสื้อยืด',
-  image: '',
-  price: '',
-  size: 'Free Size'
-})
-
-const handleAddCategory = () => {
-  if (!newCatName.value.trim()) return
-  store.addCategory(newCatName.value.trim())
-  newCatName.value = ''
+const store = useAppStore(); const router = useRouter(); const activeTab = ref('products'); const newCategory = ref(''); const editing = ref(false); const editingId = ref(null); const saving = ref(false); const validationError = ref(''); const statuses = ['pending', 'processing', 'shipped', 'delivered', 'cancelled']
+const emptyForm = () => ({ name: '', description: '', categoryId: '', price: '', active: true, images: [''], variants: [{ color: '', size: '', stock: 0 }] })
+const form = reactive(emptyForm())
+function resetForm() { Object.assign(form, emptyForm()); editing.value = false; editingId.value = null; validationError.value = '' }
+function startEdit(item) { editing.value = true; editingId.value = item.id; Object.assign(form, { name: item.name, description: item.description || '', categoryId: item.categoryId, price: item.price, active: item.active, images: item.images?.length ? [...item.images] : [''], variants: item.variants?.length ? item.variants.map(v => ({ id: v.id, color: v.color, size: v.size, stock: v.stock })) : [{ color: '', size: '', stock: 0 }] }) }
+function removeImage(index) { if (form.images.length > 1) form.images.splice(index, 1); else form.images[0] = '' }
+function addVariant() { form.variants.push({ color: '', size: '', stock: 0 }) }
+function removeVariant(index) { if (form.variants.length > 1) form.variants.splice(index, 1) }
+function validate() {
+  if (form.name.length < 2) return 'ชื่อสินค้าต้องมีอย่างน้อย 2 ตัวอักษร'
+  if (Number.isNaN(Number(form.price)) || Number(form.price) <= 0) return 'ราคาต้องเป็นตัวเลขมากกว่า 0 ตามข้อกำหนดของระบบ'
+  if (!form.categoryId) return 'กรุณาเลือกหมวดหมู่สินค้า'
+  const images = form.images.map(image => image.trim()).filter(Boolean)
+  if (images.some(image => { try { const url = new URL(image); return !['http:', 'https:'].includes(url.protocol) } catch { return true } })) return 'URL รูปภาพต้องเป็น http หรือ https ที่ถูกต้อง'
+  if (!form.variants.length) return 'ต้องมีตัวเลือกสินค้าอย่างน้อย 1 รายการ'
+  if (form.variants.some(v => !v.color || !v.size || !Number.isInteger(Number(v.stock)) || Number(v.stock) < 0)) return 'สี ไซส์ และสต็อกต้องถูกต้อง โดยสต็อกเป็นจำนวนเต็มไม่ติดลบ'
+  return ''
 }
-
-const startEdit = (item) => {
-  isEditing.value = true
-  currentEditId.value = item.id || item._id
-  form.name = item.name
-  form.category = item.category || 'เสื้อยืด'
-  form.image = item.image
-  form.price = item.price
-  form.size = item.size || 'Free Size'
-}
-
-const resetForm = () => {
-  isEditing.value = false
-  currentEditId.value = null
-  form.name = ''
-  form.image = ''
-  form.price = ''
-  form.size = 'Free Size'
-}
-
-const handleSubmitProduct = () => {
-  if (!form.name || !form.price) {
-    alert('กรุณากรอกชื่อสินค้าและราคาให้ครบถ้วน')
-    return
-  }
-
-  if (isEditing.value) {
-    store.updateProduct({
-      id: currentEditId.value,
-      name: form.name,
-      category: form.category,
-      price: Number(form.price),
-      size: form.size,
-      image: form.image
-    })
-    resetForm()
-  } else {
-    store.addProduct({
-      id: Date.now(),
-      name: form.name,
-      category: form.category,
-      price: Number(form.price),
-      size: form.size,
-      image: form.image || 'https://images.unsplash.com/photo-1521572267360-ee0c2909d518?w=500'
-    })
-    resetForm()
-  }
-}
-
-const handleLogout = async () => {
-  await store.logout()
-  alert('ออกจากระบบเรียบร้อยแล้ว')
-  router.push('/')
-}
-
-onMounted(() => {
-  store.fetchProducts()
-})
+async function submitProduct() { validationError.value = validate(); if (validationError.value) { store.showNotification(validationError.value, 'error'); return }; saving.value = true; const payload = { categoryId: form.categoryId, name: form.name, description: form.description, price: Number(form.price), images: form.images.map(i => i.trim()).filter(Boolean), variants: form.variants.map(v => ({ ...(v.id ? { id: v.id } : {}), color: v.color, size: v.size, stock: Number(v.stock) })), active: Boolean(form.active) }; try { if (editing.value) await store.updateProduct(editingId.value, payload); else await store.addProduct(payload); await store.fetchCategories(); resetForm() } catch { /* store displays the API error */ } finally { saving.value = false } }
+async function createCategory() { if (!newCategory.value) return; try { await store.addCategory(newCategory.value); newCategory.value = '' } catch { /* store displays the API error */ } }
+async function loadOrders() { await store.fetchOrders(true) }
+async function handleLogout() { await store.logout(); router.push('/') }
+function categoryName(id) { return store.categories.find(category => category.id === id)?.name || id }
+function formatDate(value) { return value ? new Date(value).toLocaleString('th-TH') : '-' }
+onMounted(async () => { await Promise.all([store.fetchProducts(), store.fetchCategories()]); await loadOrders() })
 </script>
 
 <style scoped>
-.admin-wrapper { min-height: 100vh; background-color: #f1f5f9; }
-.admin-header { background-color: #0f172a; color: #ffffff; padding: 24px 0; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1); }
-.admin-header-content { max-width: 1100px; margin: 0 auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }
-.header-actions { display: flex; align-items: center; gap: 12px; }
-.admin-brand { display: flex; align-items: center; gap: 16px; }
-.shield-icon { font-size: 2.2rem; }
-.admin-header h1 { font-size: 1.4rem; font-weight: 700; margin: 0; }
-.admin-subtitle { font-size: 0.85rem; color: #94a3b8; margin: 4px 0 0 0; }
-.admin-container { max-width: 1100px; margin: 32px auto; padding: 0 20px; }
-.tab-menu { display: flex; gap: 12px; }
-.tab-btn { padding: 10px 20px; border-radius: 8px; border: 1px solid #cbd5e1; background: white; cursor: pointer; font-weight: 600; color: #475569; }
-.tab-btn.active { background: #0f172a; color: white; border-color: #0f172a; }
-.admin-grid { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; }
-.left-col { display: flex; flex-direction: column; gap: 20px; }
-.mb-4 { margin-bottom: 16px; }
-.admin-card { background: white; padding: 24px; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
-.admin-card h2 { font-size: 1.1rem; margin-top: 0; margin-bottom: 16px; color: #0f172a; }
-.form-group { margin-bottom: 14px; }
-.row-group { display: flex; gap: 8px; }
-.row-group input { flex: 1; }
-.form-group label { display: block; font-size: 0.85rem; font-weight: 600; color: #475569; margin-bottom: 6px; }
-.form-group input { width: 100%; padding: 10px 12px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.9rem; box-sizing: border-box; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
-.form-select, .form-select-sm { width: 100%; padding: 8px 10px; border: 1px solid #cbd5e1; border-radius: 8px; font-size: 0.85rem; background: white; box-sizing: border-box; }
-.btn-block { width: 100%; margin-top: 10px; cursor: pointer; padding: 12px; font-weight: 600; background: #0f172a; color: white; border: none; border-radius: 8px; }
-.btn-outline-light { border: 1px solid #334155; color: #f8fafc; background: transparent; padding: 8px 16px; border-radius: 6px; text-decoration: none; font-size: 0.875rem; }
-.btn-danger-sm { background: #ef4444; color: white; border: none; padding: 8px 14px; border-radius: 6px; cursor: pointer; font-size: 0.875rem; font-weight: 600; }
-.section-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
-.cat-tags { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
-.cat-chip { background: #f1f5f9; padding: 4px 10px; border-radius: 16px; font-size: 0.8rem; color: #334155; display: inline-flex; align-items: center; gap: 6px; }
-.cat-del { border: none; background: none; color: #ef4444; font-weight: bold; cursor: pointer; padding: 0; }
-.admin-table { width: 100%; border-collapse: collapse; text-align: left; font-size: 0.88rem; }
-.admin-table th { padding: 12px; background: #f8fafc; color: #475569; border-bottom: 2px solid #e2e8f0; font-weight: 600; }
-.admin-table td { padding: 12px; border-bottom: 1px solid #e2e8f0; color: #334155; vertical-align: middle; }
-.font-bold { font-weight: 600; color: #0f172a; }
-.price-text { font-weight: 700; color: #2563eb; }
-.tag { background: #f1f5f9; padding: 2px 8px; border-radius: 4px; font-size: 0.8rem; color: #475569; }
-.cat-tag { background: #e0f2fe; color: #0369a1; }
-.btn-edit { background: #e0e7ff; color: #3730a3; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
-.btn-delete { background: #fee2e2; color: #dc2626; border: none; padding: 6px 12px; border-radius: 4px; cursor: pointer; font-size: 0.8rem; font-weight: 600; }
-.status-badge { padding: 4px 8px; border-radius: 4px; font-size: 0.75rem; font-weight: 600; }
-.status-badge.pending { background: #fef3c7; color: #92400e; }
-.status-badge.processing { background: #dbeafe; color: #1e40af; }
-.status-badge.completed { background: #dcfce7; color: #166534; }
-.status-badge.cancelled { background: #fee2e2; color: #991b1b; }
-.state-msg { text-align: center; padding: 40px; color: #94a3b8; }
-.admin-img-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid #e2e8f0; }
-.admin-img-placeholder { width: 44px; height: 44px; background: #f1f5f9; border-radius: 6px; display: flex; align-items: center; justify-content: center; font-size: 0.65rem; color: #94a3b8; }
-
-@media (max-width: 868px) {
-  .admin-grid { grid-template-columns: 1fr; }
-}
+.admin-wrapper { min-height: 100vh; background: #f1f5f9; }.admin-header { background: #0f172a; color: #fff; padding: 24px 0; }.admin-header-content { max-width: 1100px; margin: auto; padding: 0 20px; display: flex; justify-content: space-between; align-items: center; }.admin-header h1 { margin: 0; font-size: 1.4rem; }.admin-subtitle { color: #94a3b8; margin: 4px 0 0; }.header-actions, .tab-menu, .actions { display: flex; gap: 12px; align-items: center; }.admin-container { max-width: 1100px; margin: 32px auto; padding: 0 20px; }.tab-btn { padding: 10px 20px; border-radius: 8px; border: 1px solid #cbd5e1; background: #fff; cursor: pointer; font-weight: 600; }.tab-btn.active { background: #0f172a; color: #fff; }.admin-grid { display: grid; grid-template-columns: 380px 1fr; gap: 24px; align-items: start; }.left-col { display: flex; flex-direction: column; gap: 20px; }.admin-card { background: #fff; padding: 24px; }.admin-card h2 { font-size: 1.1rem; margin-top: 0; }.row-group, .dynamic-row, .variant-row { display: flex; gap: 8px; margin-bottom: 10px; }.row-group input, .dynamic-row input, .variant-row input { min-width: 0; flex: 1; padding: 9px; border: 1px solid #cbd5e1; border-radius: 7px; box-sizing: border-box; }.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }.form-select, .form-select-sm { width: 100%; padding: 9px; border: 1px solid #cbd5e1; border-radius: 7px; background: #fff; }.active-toggle { align-self: center; font-weight: 600; }.dynamic-section { margin: 18px 0; }.section-title-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }.section-title-row h2 { margin: 0; }.btn-sm, .btn-outline-light, .btn-danger-sm, .btn-edit, .btn-delete { border: 0; border-radius: 6px; padding: 7px 10px; cursor: pointer; }.btn-sm { background: #e2e8f0; }.btn-outline-light { color: #fff; background: transparent; border: 1px solid #64748b; text-decoration: none; }.btn-danger-sm { color: #fff; background: #ef4444; }.btn-block { width: 100%; padding: 12px; border: 0; border-radius: 7px; background: #0f172a; color: #fff; cursor: pointer; font-weight: 600; }.btn-block:disabled { opacity: .6; }.btn-outline { background: #fff; color: #334155; border: 1px solid #cbd5e1; }.cat-tags { display: flex; gap: 8px; flex-wrap: wrap; }.cat-chip { background: #f1f5f9; padding: 5px 9px; border-radius: 15px; }.cat-del { margin-left: 5px; border: 0; background: none; color: #dc2626; cursor: pointer; }.admin-table { width: 100%; border-collapse: collapse; font-size: .86rem; }.admin-table th, .admin-table td { padding: 10px; border-bottom: 1px solid #e2e8f0; text-align: left; vertical-align: middle; }.admin-img-thumb { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; }.btn-edit { background: #e0e7ff; color: #3730a3; margin-right: 5px; }.btn-delete { background: #fee2e2; color: #dc2626; }.state-msg { text-align: center; padding: 40px; color: #94a3b8; }.validation-error { color: #b91c1c; font-size: .9rem; } .table-responsive { overflow-x: auto; }
+@media (max-width: 868px) { .admin-grid { grid-template-columns: 1fr; } .admin-header-content { gap: 16px; flex-direction: column; align-items: flex-start; } }
 </style>
