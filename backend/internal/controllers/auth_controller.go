@@ -70,7 +70,8 @@ func (h *AuthController) Me(c *fiber.Ctx) error {
 	if !ok || id.IsZero() {
 		return fiber.ErrUnauthorized
 	}
-	return c.JSON(fiber.Map{"userId": id.Hex()})
+	role, _ := c.Locals(middleware.RoleKey).(string)
+	return c.JSON(fiber.Map{"userId": id.Hex(), "role": role})
 }
 
 func (h *AuthController) Logout(c *fiber.Ctx) error {

@@ -39,6 +39,7 @@ type ProductInput struct {
 	Price       float64
 	Images      []string
 	Variants    []ProductVariantInput
+	Active      *bool
 }
 
 func (s *ProductService) Create(ctx context.Context, input ProductInput) (models.Product, error) {
@@ -101,9 +102,13 @@ func (s *ProductService) buildProduct(ctx context.Context, input ProductInput, i
 	if createdAt.IsZero() {
 		createdAt = now
 	}
+	active := true
+	if input.Active != nil {
+		active = *input.Active
+	}
 	return models.Product{
 		ID: id, CategoryID: input.CategoryID, Name: name, Description: description,
-		Price: input.Price, Images: images, Variants: variants, Active: true,
+		Price: input.Price, Images: images, Variants: variants, Active: active,
 		CreatedAt: createdAt, UpdatedAt: now,
 	}, nil
 }
