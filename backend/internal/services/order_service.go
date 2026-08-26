@@ -75,11 +75,12 @@ func (s *OrderService) Create(ctx context.Context, userID primitive.ObjectID) (m
 	return s.orders.CreateFromCart(ctx, userID, items, math.Round(total*100)/100)
 }
 
-func (s *OrderService) ListByUser(ctx context.Context, userID primitive.ObjectID) ([]models.Order, error) {
+func (s *OrderService) ListByUser(ctx context.Context, userID primitive.ObjectID, page, limit int) (models.OrderListResponse, error) {
 	if userID.IsZero() {
-		return nil, ErrInvalidInput
+		return models.OrderListResponse{}, ErrInvalidInput
 	}
-	return s.orders.ListByUserID(ctx, userID)
+	page, limit = normalizePagination(page, limit)
+	return s.orders.ListByUserID(ctx, userID, page, limit)
 }
 
 func (s *OrderService) GetForUser(ctx context.Context, userID, orderID primitive.ObjectID) (models.Order, error) {
@@ -96,8 +97,22 @@ func (s *OrderService) GetForUser(ctx context.Context, userID, orderID primitive
 	return order, nil
 }
 
-func (s *OrderService) ListAll(ctx context.Context) ([]models.Order, error) {
-	return s.orders.ListAll(ctx)
+func (s *OrderService) ListAll(ctx context.Context, page, limit int) (models.OrderListResponse, error) {
+	page, limit = normalizePagination(page, limit)
+	return s.orders.ListAll(ctx, page, limit)
+}
+
+func normalizePagination(page, limit int) (int, int) {
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	return page, limit
 }
 
 func (s *OrderService) UpdateStatus(ctx context.Context, orderID primitive.ObjectID, status string) (models.Order, error) {

@@ -34,3 +34,15 @@ type Order struct {
 	CreatedAt  time.Time          `bson:"createdAt" json:"createdAt"`
 	UpdatedAt  time.Time          `bson:"updatedAt" json:"updatedAt"`
 }
+
+type Pagination struct {
+	Page       int   `json:"page"`
+	Limit      int   `json:"limit"`
+	TotalItems int64 `json:"totalItems"`
+	TotalPages int   `json:"totalPages"`
+}
+
+type OrderListResponse struct {
+	Orders     []Order    `json:"orders"`
+	Pagination Pagination `json:"pagination"`
+}

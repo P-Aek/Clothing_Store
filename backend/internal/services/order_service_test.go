@@ -38,22 +38,22 @@ func (r *memoryOrderRepository) FindByID(_ context.Context, id primitive.ObjectI
 	return order, nil
 }
 
-func (r *memoryOrderRepository) ListByUserID(_ context.Context, userID primitive.ObjectID) ([]models.Order, error) {
+func (r *memoryOrderRepository) ListByUserID(_ context.Context, userID primitive.ObjectID, page, limit int) (models.OrderListResponse, error) {
 	orders := []models.Order{}
 	for _, order := range r.orders {
 		if order.UserID == userID {
 			orders = append(orders, order)
 		}
 	}
-	return orders, nil
+	return models.OrderListResponse{Orders: orders, Pagination: models.Pagination{Page: page, Limit: limit, TotalItems: int64(len(orders)), TotalPages: 1}}, nil
 }
 
-func (r *memoryOrderRepository) ListAll(context.Context) ([]models.Order, error) {
+func (r *memoryOrderRepository) ListAll(_ context.Context, page, limit int) (models.OrderListResponse, error) {
 	orders := make([]models.Order, 0, len(r.orders))
 	for _, order := range r.orders {
 		orders = append(orders, order)
 	}
-	return orders, nil
+	return models.OrderListResponse{Orders: orders, Pagination: models.Pagination{Page: page, Limit: limit, TotalItems: int64(len(orders)), TotalPages: 1}}, nil
 }
 
 func (r *memoryOrderRepository) UpdateStatus(_ context.Context, id primitive.ObjectID, status string, updatedAt time.Time) (models.Order, error) {

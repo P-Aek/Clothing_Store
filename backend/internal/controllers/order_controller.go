@@ -36,11 +36,12 @@ func (h *OrderController) List(c *fiber.Ctx) error {
 	if err != nil {
 		return fiber.ErrUnauthorized
 	}
-	orders, err := h.service.ListByUser(c.UserContext(), userID)
+	page, limit := paginationQuery(c)
+	orders, err := h.service.ListByUser(c.UserContext(), userID, page, limit)
 	if err != nil {
 		return fiber.ErrInternalServerError
 	}
-	return c.JSON(fiber.Map{"orders": orders})
+	return c.JSON(orders)
 }
 
 func (h *OrderController) Get(c *fiber.Ctx) error {
@@ -60,11 +61,27 @@ func (h *OrderController) Get(c *fiber.Ctx) error {
 }
 
 func (h *OrderController) AdminList(c *fiber.Ctx) error {
-	orders, err := h.service.ListAll(c.UserContext())
+	page, limit := paginationQuery(c)
+	orders, err := h.service.ListAll(c.UserContext(), page, limit)
 	if err != nil {
 		return fiber.ErrInternalServerError
 	}
-	return c.JSON(fiber.Map{"orders": orders})
+	return c.JSON(orders)
+}
+
+func paginationQuery(c *fiber.Ctx) (int, int) {
+	page := c.QueryInt("page", 1)
+	limit := c.QueryInt("limit", 10)
+	if page < 1 {
+		page = 1
+	}
+	if limit < 1 {
+		limit = 10
+	}
+	if limit > 100 {
+		limit = 100
+	}
+	return page, limit
 }
 
 func (h *OrderController) AdminUpdateStatus(c *fiber.Ctx) error {

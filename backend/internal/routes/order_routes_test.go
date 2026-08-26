@@ -2,6 +2,7 @@ package routes
 
 import (
 	"context"
+	"encoding/json"
 	"net/http/httptest"
 	"strings"
 	"testing"
@@ -18,7 +19,9 @@ import (
 )
 
 type routeOrderRepository struct {
-	orders map[primitive.ObjectID]models.Order
+	orders    map[primitive.ObjectID]models.Order
+	lastPage  int
+	lastLimit int
 }
 
 func newRouteOrderRepository() *routeOrderRepository {
@@ -37,21 +40,23 @@ func (r *routeOrderRepository) FindByID(_ context.Context, id primitive.ObjectID
 	}
 	return order, nil
 }
-func (r *routeOrderRepository) ListByUserID(_ context.Context, userID primitive.ObjectID) ([]models.Order, error) {
+func (r *routeOrderRepository) ListByUserID(_ context.Context, userID primitive.ObjectID, page, limit int) (models.OrderListResponse, error) {
+	r.lastPage, r.lastLimit = page, limit
 	orders := []models.Order{}
 	for _, order := range r.orders {
 		if order.UserID == userID {
 			orders = append(orders, order)
 		}
 	}
-	return orders, nil
+	return models.OrderListResponse{Orders: orders, Pagination: models.Pagination{Page: page, Limit: limit, TotalItems: int64(len(orders)), TotalPages: 1}}, nil
 }
-func (r *routeOrderRepository) ListAll(context.Context) ([]models.Order, error) {
+func (r *routeOrderRepository) ListAll(_ context.Context, page, limit int) (models.OrderListResponse, error) {
+	r.lastPage, r.lastLimit = page, limit
 	orders := make([]models.Order, 0, len(r.orders))
 	for _, order := range r.orders {
 		orders = append(orders, order)
 	}
-	return orders, nil
+	return models.OrderListResponse{Orders: orders, Pagination: models.Pagination{Page: page, Limit: limit, TotalItems: int64(len(orders)), TotalPages: 1}}, nil
 }
 func (r *routeOrderRepository) UpdateStatus(_ context.Context, id primitive.ObjectID, status string, updatedAt time.Time) (models.Order, error) {
 	order, err := r.FindByID(context.Background(), id)
@@ -108,6 +113,53 @@ func TestOrderRoutesRestrictAdminListAndAllowUserList(t *testing.T) {
 	adminResponse, err := app.Test(adminRequest)
 	if err != nil || adminResponse.StatusCode != fiber.StatusForbidden {
 		t.Fatalf("admin list status = %v, error = %v", adminResponse.StatusCode, err)
+	}
+}
+
+func TestOrderListUsesPaginationAndOnlyReturnsAuthenticatedUserOrders(t *testing.T) {
+	userID := primitive.NewObjectID()
+	otherUserID := primitive.NewObjectID()
+	orders := newRouteOrderRepository()
+	orders.orders[primitive.NewObjectID()] = models.Order{UserID: userID}
+	orders.orders[primitive.NewObjectID()] = models.Order{UserID: otherUserID}
+	service := services.NewOrderService(orders, newRouteCartRepository(), &routeProductRepository{products: map[primitive.ObjectID]models.Product{}})
+	app := orderTestApp(controllers.NewOrderController(service))
+
+	req := httptest.NewRequest("GET", "/api/orders?page=2&limit=5", nil)
+	req.Header.Set(fiber.HeaderAuthorization, "Bearer "+orderToken(t, userID, "customer"))
+	res, err := app.Test(req)
+	if err != nil || res.StatusCode != fiber.StatusOK {
+		t.Fatalf("status = %v, error = %v", res.StatusCode, err)
+	}
+	var response models.OrderListResponse
+	if err := json.NewDecoder(res.Body).Decode(&response); err != nil {
+		t.Fatal(err)
+	}
+	if orders.lastPage != 2 || orders.lastLimit != 5 {
+		t.Fatalf("repository pagination = (%d, %d), want (2, 5)", orders.lastPage, orders.lastLimit)
+	}
+	if len(response.Orders) != 1 || response.Orders[0].UserID != userID {
+		t.Fatalf("orders = %+v, want only authenticated user's order", response.Orders)
+	}
+	if response.Pagination.Page != 2 || response.Pagination.Limit != 5 {
+		t.Fatalf("pagination = %+v", response.Pagination)
+	}
+}
+
+func TestOrderListNormalizesPaginationQuery(t *testing.T) {
+	userID := primitive.NewObjectID()
+	orders := newRouteOrderRepository()
+	service := services.NewOrderService(orders, newRouteCartRepository(), &routeProductRepository{products: map[primitive.ObjectID]models.Product{}})
+	app := orderTestApp(controllers.NewOrderController(service))
+
+	req := httptest.NewRequest("GET", "/api/orders?page=0&limit=101", nil)
+	req.Header.Set(fiber.HeaderAuthorization, "Bearer "+orderToken(t, userID, "customer"))
+	res, err := app.Test(req)
+	if err != nil || res.StatusCode != fiber.StatusOK {
+		t.Fatalf("status = %v, error = %v", res.StatusCode, err)
+	}
+	if orders.lastPage != 1 || orders.lastLimit != 100 {
+		t.Fatalf("repository pagination = (%d, %d), want (1, 100)", orders.lastPage, orders.lastLimit)
 	}
 }
 

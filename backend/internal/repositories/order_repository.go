@@ -3,6 +3,7 @@ package repositories
 import (
 	"context"
 	"errors"
+	"math"
 	"time"
 
 	"go.mongodb.org/mongo-driver/bson"
@@ -16,8 +17,8 @@ import (
 type OrderRepository interface {
 	CreateFromCart(context.Context, primitive.ObjectID, []models.OrderItem, float64) (models.Order, error)
 	FindByID(context.Context, primitive.ObjectID) (models.Order, error)
-	ListByUserID(context.Context, primitive.ObjectID) ([]models.Order, error)
-	ListAll(context.Context) ([]models.Order, error)
+	ListByUserID(context.Context, primitive.ObjectID, int, int) (models.OrderListResponse, error)
+	ListAll(context.Context, int, int) (models.OrderListResponse, error)
 	UpdateStatus(context.Context, primitive.ObjectID, string, time.Time) (models.Order, error)
 }
 
@@ -115,28 +116,39 @@ func (r *MongoOrderRepository) FindByID(ctx context.Context, id primitive.Object
 	return order, nil
 }
 
-func (r *MongoOrderRepository) ListByUserID(ctx context.Context, userID primitive.ObjectID) ([]models.Order, error) {
-	return r.list(ctx, bson.M{"userId": userID})
+func (r *MongoOrderRepository) ListByUserID(ctx context.Context, userID primitive.ObjectID, page, limit int) (models.OrderListResponse, error) {
+	return r.list(ctx, bson.M{"userId": userID}, page, limit)
 }
 
-func (r *MongoOrderRepository) ListAll(ctx context.Context) ([]models.Order, error) {
-	return r.list(ctx, bson.M{})
+func (r *MongoOrderRepository) ListAll(ctx context.Context, page, limit int) (models.OrderListResponse, error) {
+	return r.list(ctx, bson.M{}, page, limit)
 }
 
-func (r *MongoOrderRepository) list(ctx context.Context, filter bson.M) ([]models.Order, error) {
-	cursor, err := r.orders.Find(ctx, filter, options.Find().SetSort(bson.D{{Key: "createdAt", Value: -1}}))
+func (r *MongoOrderRepository) list(ctx context.Context, filter bson.M, page, limit int) (models.OrderListResponse, error) {
+	totalItems, err := r.orders.CountDocuments(ctx, filter)
 	if err != nil {
-		return nil, err
+		return models.OrderListResponse{}, err
+	}
+	skip := int64(page-1) * int64(limit)
+	cursor, err := r.orders.Find(ctx, filter, options.Find().
+		SetSort(bson.D{{Key: "createdAt", Value: -1}}).
+		SetSkip(skip).
+		SetLimit(int64(limit)))
+	if err != nil {
+		return models.OrderListResponse{}, err
 	}
 	defer cursor.Close(ctx)
 	var orders []models.Order
 	if err := cursor.All(ctx, &orders); err != nil {
-		return nil, err
+		return models.OrderListResponse{}, err
 	}
 	if orders == nil {
 		orders = []models.Order{}
 	}
-	return orders, nil
+	return models.OrderListResponse{Orders: orders, Pagination: models.Pagination{
+		Page: page, Limit: limit, TotalItems: totalItems,
+		TotalPages: int(math.Ceil(float64(totalItems) / float64(limit))),
+	}}, nil
 }
 
 func (r *MongoOrderRepository) UpdateStatus(ctx context.Context, id primitive.ObjectID, status string, updatedAt time.Time) (models.Order, error) {
