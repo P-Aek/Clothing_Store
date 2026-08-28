@@ -94,7 +94,7 @@ func main() {
 
 	app := fiber.New(fiber.Config{DisableStartupMessage: true})
 	app.Use(cors.New(cors.Config{
-		AllowOrigins: "https://plain-tee-store-6e6m.vercel.app/,http://localhost:5173",
+		AllowOrigins: "https://plain-tee-store-6e6m.vercel.app/,https://plain-tee-store.vercel.app/,http://localhost:5173",
 		AllowHeaders: "Origin, Content-Type, Accept, Authorization",
 		AllowMethods: "GET,POST,PUT,PATCH,DELETE,OPTIONS",
 	}))
