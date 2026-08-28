@@ -401,6 +401,26 @@ paths:
         '401': { $ref: '#/components/responses/Unauthorized' }
         '404': { $ref: '#/components/responses/NotFound' }
         '500': { $ref: '#/components/responses/InternalError' }
+  /api/orders/{id}/cancel:
+    put:
+      tags: [Orders]
+      summary: Cancel the authenticated customer's pending order
+      description: Atomically restores stock for every ordered variant and marks the order cancelled. Only a pending order owned by the authenticated customer can be cancelled.
+      operationId: cancelOrder
+      security: [{ bearerAuth: [] }]
+      parameters:
+        - $ref: '#/components/parameters/Id'
+      responses:
+        '200':
+          description: Order cancelled and stock restored
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/OrderCancellationResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '500': { $ref: '#/components/responses/InternalError' }
   /api/admin/orders/:
     get:
       tags: [Admin Orders]
@@ -691,6 +711,12 @@ components:
       type: object
       required: [order]
       properties:
+        order: { $ref: '#/components/schemas/Order' }
+    OrderCancellationResponse:
+      type: object
+      required: [message, order]
+      properties:
+        message: { type: string, example: order cancelled successfully }
         order: { $ref: '#/components/schemas/Order' }
     OrdersResponse:
       type: object

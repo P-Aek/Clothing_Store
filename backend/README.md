@@ -11,7 +11,7 @@ Backend REST API for a clothing store, built with Go, Fiber, and MongoDB. It pro
 - Product variants with color, size, and stock
 - One cart per customer with stock validation
 - Transactional checkout with atomic stock updates
-- Customer order ownership checks
+- Customer order ownership checks and transactional pending-order cancellation
 - Admin order listing and status management
 - MongoDB indexes created during application startup
 - Graceful HTTP server and MongoDB shutdown
@@ -57,7 +57,7 @@ Controllers remain thin, services own validation and business rules, and reposit
 - MongoDB Atlas or MongoDB configured as a replica set
 - Git
 
-MongoDB transactions are required for checkout so that order creation, stock reduction, and cart clearing succeed or fail together.
+MongoDB transactions are required for checkout and cancellation so that order and stock changes succeed or fail together.
 
 ## Configuration
 
@@ -250,8 +250,10 @@ All customer order endpoints require authentication and enforce order ownership.
 | `POST` | `/api/orders/` | Create an order from the current cart. |
 | `GET` | `/api/orders/` | List the authenticated user's orders. |
 | `GET` | `/api/orders/:id` | Get one owned order. |
+| `PUT` | `/api/orders/:id/cancel` | Cancel one owned pending order and restore its variant stock. |
 
 Checkout snapshots product details into the order, atomically decrements stock, and clears the cart within a MongoDB transaction.
+Cancellation is allowed only while an order is `pending`. Ownership validation, exact-variant stock restoration, and the status change to `cancelled` run in one MongoDB transaction. Repeated cancellation is rejected and cannot restore stock twice.
 
 ### Admin Orders
 
@@ -276,6 +278,8 @@ Example status request:
 }
 ```
 
+Changing an order to `cancelled` through the admin status endpoint uses the same pending-only transactional cancellation flow and stock restoration as customer cancellation.
+
 ## HTTP Status Codes
 
 The API commonly returns:
@@ -287,7 +291,7 @@ The API commonly returns:
 | `204 No Content` | Resource or cart item removed. |
 | `400 Bad Request` | Invalid body, identifier, query, or domain input. |
 | `401 Unauthorized` | Missing or invalid JWT. |
-| `403 Forbidden` | Authenticated user lacks the admin role. |
+| `403 Forbidden` | Authenticated user lacks the required role or does not own the order. |
 | `404 Not Found` | Resource does not exist or is not accessible. |
 | `409 Conflict` | Duplicate data, empty cart, changed cart, or insufficient stock. |
 | `500 Internal Server Error` | Unexpected internal failure. |
@@ -346,6 +350,7 @@ The test suite covers services, authentication middleware, health checks, route 
 - Customer-specific cart and order operations use the authenticated user ID.
 - Category and product deletion is soft deletion.
 - Checkout uses a transaction and conditional stock updates.
+- Order cancellation uses a transaction, ownership checks, and exact-variant atomic stock restoration.
 - Secrets are loaded from environment variables and must not be committed.
 - Public authentication endpoints should be rate-limited before internet-facing production deployment.
 - Production deployments should add restrictive CORS, security headers, request size limits, structured logging, and a consistent JSON error format.

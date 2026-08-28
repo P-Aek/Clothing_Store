@@ -60,6 +60,22 @@ func (h *OrderController) Get(c *fiber.Ctx) error {
 	return c.JSON(fiber.Map{"order": order})
 }
 
+func (h *OrderController) Cancel(c *fiber.Ctx) error {
+	userID, err := authenticatedUserID(c)
+	if err != nil {
+		return fiber.ErrUnauthorized
+	}
+	orderID, err := primitive.ObjectIDFromHex(c.Params("id"))
+	if err != nil {
+		return fiber.NewError(fiber.StatusBadRequest, "invalid order id")
+	}
+	order, err := h.service.CancelOrder(c.UserContext(), userID, orderID)
+	if mapped := mapOrderError(err); mapped != nil {
+		return mapped
+	}
+	return c.JSON(fiber.Map{"message": "order cancelled successfully", "order": order})
+}
+
 func (h *OrderController) AdminList(c *fiber.Ctx) error {
 	page, limit := paginationQuery(c)
 	orders, err := h.service.ListAll(c.UserContext(), page, limit)
@@ -112,6 +128,12 @@ func mapOrderError(err error) error {
 		return fiber.NewError(fiber.StatusConflict, "a product variant is no longer available")
 	case errors.Is(err, repositories.ErrOrderStockUnavailable):
 		return fiber.NewError(fiber.StatusConflict, "requested stock is no longer available")
+	case errors.Is(err, repositories.ErrOrderNotOwned):
+		return fiber.NewError(fiber.StatusForbidden, "order does not belong to authenticated user")
+	case errors.Is(err, repositories.ErrOrderAlreadyCancelled):
+		return fiber.NewError(fiber.StatusBadRequest, "order already cancelled")
+	case errors.Is(err, repositories.ErrOrderCannotBeCancelled):
+		return fiber.NewError(fiber.StatusBadRequest, "order cannot be cancelled in its current status")
 	case errors.Is(err, repositories.ErrCartChanged):
 		return fiber.NewError(fiber.StatusConflict, "cart changed during checkout; please try again")
 	case errors.Is(err, services.ErrInvalidOrderStatus):

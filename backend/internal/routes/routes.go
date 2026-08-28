@@ -44,6 +44,7 @@ func Register(app *fiber.App, healthController *controllers.HealthController, au
 	orderRoutes := app.Group("/api/orders", middleware.JWT(jwtSecret))
 	orderRoutes.Post("/", orderController.Create)
 	orderRoutes.Get("/", orderController.List)
+	orderRoutes.Put("/:id/cancel", orderController.Cancel)
 	orderRoutes.Get("/:id", orderController.Get)
 	adminOrderRoutes := app.Group("/api/admin/orders", middleware.JWT(jwtSecret), middleware.RequireRole("admin"))
 	adminOrderRoutes.Get("/", orderController.AdminList)

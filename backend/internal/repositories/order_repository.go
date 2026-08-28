@@ -20,6 +20,7 @@ type OrderRepository interface {
 	ListByUserID(context.Context, primitive.ObjectID, int, int) (models.OrderListResponse, error)
 	ListAll(context.Context, int, int) (models.OrderListResponse, error)
 	UpdateStatus(context.Context, primitive.ObjectID, string, time.Time) (models.Order, error)
+	Cancel(context.Context, primitive.ObjectID, *primitive.ObjectID, time.Time) (models.Order, error)
 }
 
 type MongoOrderRepository struct {
@@ -160,4 +161,73 @@ func (r *MongoOrderRepository) UpdateStatus(ctx context.Context, id primitive.Ob
 		return models.Order{}, ErrOrderNotFound
 	}
 	return r.FindByID(ctx, id)
+}
+
+// Cancel atomically verifies the order, restores every ordered variant's stock,
+// and marks the order cancelled. ownerID is nil for an authorized admin request.
+func (r *MongoOrderRepository) Cancel(ctx context.Context, id primitive.ObjectID, ownerID *primitive.ObjectID, updatedAt time.Time) (models.Order, error) {
+	session, err := r.database.Client().StartSession()
+	if err != nil {
+		return models.Order{}, err
+	}
+	defer session.EndSession(ctx)
+
+	var cancelled models.Order
+	_, err = session.WithTransaction(ctx, func(sc mongo.SessionContext) (interface{}, error) {
+		var order models.Order
+		if findErr := r.orders.FindOne(sc, bson.M{"_id": id}).Decode(&order); findErr != nil {
+			if errors.Is(findErr, mongo.ErrNoDocuments) {
+				return nil, ErrOrderNotFound
+			}
+			return nil, findErr
+		}
+		if ownerID != nil && order.UserID != *ownerID {
+			return nil, ErrOrderNotOwned
+		}
+		switch order.Status {
+		case models.OrderStatusCancelled:
+			return nil, ErrOrderAlreadyCancelled
+		case models.OrderStatusPending:
+			// Continue with cancellation.
+		default:
+			return nil, ErrOrderCannotBeCancelled
+		}
+
+		for _, item := range order.Items {
+			if item.ProductID.IsZero() || item.VariantID.IsZero() || item.Quantity < 1 {
+				return nil, ErrOrderStockRestoreFailed
+			}
+			result, restoreErr := r.products.UpdateOne(sc,
+				bson.M{"_id": item.ProductID, "variants": bson.M{"$elemMatch": bson.M{"_id": item.VariantID}}},
+				bson.M{"$inc": bson.M{"variants.$[variant].stock": item.Quantity}},
+				options.Update().SetArrayFilters(options.ArrayFilters{Filters: []interface{}{bson.M{"variant._id": item.VariantID}}}),
+			)
+			if restoreErr != nil {
+				return nil, restoreErr
+			}
+			if result.MatchedCount == 0 {
+				return nil, ErrOrderStockRestoreFailed
+			}
+		}
+
+		result, updateErr := r.orders.UpdateOne(sc,
+			bson.M{"_id": id, "status": models.OrderStatusPending},
+			bson.M{"$set": bson.M{"status": models.OrderStatusCancelled, "updatedAt": updatedAt}},
+		)
+		if updateErr != nil {
+			return nil, updateErr
+		}
+		if result.MatchedCount == 0 {
+			return nil, ErrOrderCannotBeCancelled
+		}
+
+		order.Status = models.OrderStatusCancelled
+		order.UpdatedAt = updatedAt
+		cancelled = order
+		return nil, nil
+	})
+	if err != nil {
+		return models.Order{}, err
+	}
+	return cancelled, nil
 }

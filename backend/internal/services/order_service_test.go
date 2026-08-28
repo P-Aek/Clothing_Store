@@ -13,12 +13,17 @@ import (
 )
 
 type memoryOrderRepository struct {
-	orders       map[primitive.ObjectID]models.Order
-	stockFailure bool
+	orders                  map[primitive.ObjectID]models.Order
+	stock                   map[primitive.ObjectID]int
+	stockFailure            bool
+	cancelFailureAfterItems int
 }
 
 func newMemoryOrderRepository() *memoryOrderRepository {
-	return &memoryOrderRepository{orders: map[primitive.ObjectID]models.Order{}}
+	return &memoryOrderRepository{
+		orders: map[primitive.ObjectID]models.Order{},
+		stock:  map[primitive.ObjectID]int{},
+	}
 }
 
 func (r *memoryOrderRepository) CreateFromCart(_ context.Context, userID primitive.ObjectID, items []models.OrderItem, total float64) (models.Order, error) {
@@ -63,6 +68,40 @@ func (r *memoryOrderRepository) UpdateStatus(_ context.Context, id primitive.Obj
 	}
 	order.Status = status
 	order.UpdatedAt = updatedAt
+	r.orders[id] = order
+	return order, nil
+}
+
+func (r *memoryOrderRepository) Cancel(_ context.Context, id primitive.ObjectID, ownerID *primitive.ObjectID, updatedAt time.Time) (models.Order, error) {
+	order, err := r.FindByID(context.Background(), id)
+	if err != nil {
+		return models.Order{}, err
+	}
+	if ownerID != nil && order.UserID != *ownerID {
+		return models.Order{}, repositories.ErrOrderNotOwned
+	}
+	if order.Status == models.OrderStatusCancelled {
+		return models.Order{}, repositories.ErrOrderAlreadyCancelled
+	}
+	if order.Status != models.OrderStatusPending {
+		return models.Order{}, repositories.ErrOrderCannotBeCancelled
+	}
+
+	// Copy state to model the commit-or-rollback behavior of the MongoDB transaction.
+	nextStock := make(map[primitive.ObjectID]int, len(r.stock))
+	for variantID, quantity := range r.stock {
+		nextStock[variantID] = quantity
+	}
+	for index, item := range order.Items {
+		nextStock[item.VariantID] += item.Quantity
+		if r.cancelFailureAfterItems > 0 && index+1 == r.cancelFailureAfterItems {
+			return models.Order{}, errors.New("stock restoration failed")
+		}
+	}
+
+	order.Status = models.OrderStatusCancelled
+	order.UpdatedAt = updatedAt
+	r.stock = nextStock
 	r.orders[id] = order
 	return order, nil
 }
@@ -132,5 +171,117 @@ func TestOrderServiceProtectsOwnershipAndValidatesStatus(t *testing.T) {
 	updated, err := service.UpdateStatus(context.Background(), order.ID, models.OrderStatusShipped)
 	if err != nil || updated.Status != models.OrderStatusShipped {
 		t.Fatalf("updated order = %+v, error = %v", updated, err)
+	}
+}
+
+func TestOrderServiceCancelsOwnPendingOrderAndRestoresStockOnce(t *testing.T) {
+	ownerID := primitive.NewObjectID()
+	variantID := primitive.NewObjectID()
+	order := models.Order{
+		ID: primitive.NewObjectID(), UserID: ownerID, Status: models.OrderStatusPending,
+		Items: []models.OrderItem{{ProductID: primitive.NewObjectID(), VariantID: variantID, Quantity: 2}},
+	}
+	orders := newMemoryOrderRepository()
+	orders.orders[order.ID] = order
+	orders.stock[variantID] = 8
+	service := NewOrderService(orders, newMemoryCartRepository(), newMemoryProductRepository())
+
+	cancelled, err := service.CancelOrder(context.Background(), ownerID, order.ID)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if cancelled.Status != models.OrderStatusCancelled || orders.stock[variantID] != 10 {
+		t.Fatalf("order status = %q, stock = %d", cancelled.Status, orders.stock[variantID])
+	}
+
+	if _, err := service.CancelOrder(context.Background(), ownerID, order.ID); !errors.Is(err, repositories.ErrOrderAlreadyCancelled) {
+		t.Fatalf("second cancellation error = %v", err)
+	}
+	if orders.stock[variantID] != 10 {
+		t.Fatalf("stock after duplicate cancellation = %d, want 10", orders.stock[variantID])
+	}
+}
+
+func TestOrderServiceRejectsCancellationByAnotherCustomer(t *testing.T) {
+	ownerID := primitive.NewObjectID()
+	order := models.Order{ID: primitive.NewObjectID(), UserID: ownerID, Status: models.OrderStatusPending}
+	orders := newMemoryOrderRepository()
+	orders.orders[order.ID] = order
+	service := NewOrderService(orders, newMemoryCartRepository(), newMemoryProductRepository())
+
+	if _, err := service.CancelOrder(context.Background(), primitive.NewObjectID(), order.ID); !errors.Is(err, repositories.ErrOrderNotOwned) {
+		t.Fatalf("ownership error = %v", err)
+	}
+	if orders.orders[order.ID].Status != models.OrderStatusPending {
+		t.Fatalf("order status changed to %q", orders.orders[order.ID].Status)
+	}
+}
+
+func TestOrderServiceRejectsNonPendingCancellation(t *testing.T) {
+	for _, status := range []string{models.OrderStatusProcessing, models.OrderStatusShipped, models.OrderStatusDelivered} {
+		t.Run(status, func(t *testing.T) {
+			ownerID := primitive.NewObjectID()
+			order := models.Order{ID: primitive.NewObjectID(), UserID: ownerID, Status: status}
+			orders := newMemoryOrderRepository()
+			orders.orders[order.ID] = order
+			service := NewOrderService(orders, newMemoryCartRepository(), newMemoryProductRepository())
+
+			if _, err := service.CancelOrder(context.Background(), ownerID, order.ID); !errors.Is(err, repositories.ErrOrderCannotBeCancelled) {
+				t.Fatalf("cancellation error = %v", err)
+			}
+			if orders.orders[order.ID].Status != status {
+				t.Fatalf("order status changed to %q", orders.orders[order.ID].Status)
+			}
+		})
+	}
+}
+
+func TestOrderServiceCancellationRollsBackWhenStockRestorationFails(t *testing.T) {
+	ownerID := primitive.NewObjectID()
+	firstVariantID := primitive.NewObjectID()
+	secondVariantID := primitive.NewObjectID()
+	order := models.Order{
+		ID: primitive.NewObjectID(), UserID: ownerID, Status: models.OrderStatusPending,
+		Items: []models.OrderItem{
+			{ProductID: primitive.NewObjectID(), VariantID: firstVariantID, Quantity: 2},
+			{ProductID: primitive.NewObjectID(), VariantID: secondVariantID, Quantity: 3},
+		},
+	}
+	orders := newMemoryOrderRepository()
+	orders.orders[order.ID] = order
+	orders.stock[firstVariantID] = 8
+	orders.stock[secondVariantID] = 7
+	orders.cancelFailureAfterItems = 2
+	service := NewOrderService(orders, newMemoryCartRepository(), newMemoryProductRepository())
+
+	if _, err := service.CancelOrder(context.Background(), ownerID, order.ID); err == nil {
+		t.Fatal("expected stock restoration failure")
+	}
+	if orders.orders[order.ID].Status != models.OrderStatusPending {
+		t.Fatalf("order status = %q, want pending", orders.orders[order.ID].Status)
+	}
+	if orders.stock[firstVariantID] != 8 || orders.stock[secondVariantID] != 7 {
+		t.Fatalf("stock changed after rollback: first=%d second=%d", orders.stock[firstVariantID], orders.stock[secondVariantID])
+	}
+}
+
+func TestOrderServiceAdminCancellationUsesTransactionalCancellation(t *testing.T) {
+	ownerID := primitive.NewObjectID()
+	variantID := primitive.NewObjectID()
+	order := models.Order{
+		ID: primitive.NewObjectID(), UserID: ownerID, Status: models.OrderStatusPending,
+		Items: []models.OrderItem{{ProductID: primitive.NewObjectID(), VariantID: variantID, Quantity: 2}},
+	}
+	orders := newMemoryOrderRepository()
+	orders.orders[order.ID] = order
+	orders.stock[variantID] = 8
+	service := NewOrderService(orders, newMemoryCartRepository(), newMemoryProductRepository())
+
+	updated, err := service.UpdateStatus(context.Background(), order.ID, models.OrderStatusCancelled)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if updated.Status != models.OrderStatusCancelled || orders.stock[variantID] != 10 {
+		t.Fatalf("order status = %q, stock = %d", updated.Status, orders.stock[variantID])
 	}
 }

@@ -97,6 +97,13 @@ func (s *OrderService) GetForUser(ctx context.Context, userID, orderID primitive
 	return order, nil
 }
 
+func (s *OrderService) CancelOrder(ctx context.Context, userID, orderID primitive.ObjectID) (models.Order, error) {
+	if userID.IsZero() || orderID.IsZero() {
+		return models.Order{}, ErrInvalidInput
+	}
+	return s.orders.Cancel(ctx, orderID, &userID, s.now().UTC())
+}
+
 func (s *OrderService) ListAll(ctx context.Context, page, limit int) (models.OrderListResponse, error) {
 	page, limit = normalizePagination(page, limit)
 	return s.orders.ListAll(ctx, page, limit)
@@ -121,6 +128,9 @@ func (s *OrderService) UpdateStatus(ctx context.Context, orderID primitive.Objec
 	}
 	if !validOrderStatus(status) {
 		return models.Order{}, ErrInvalidOrderStatus
+	}
+	if status == models.OrderStatusCancelled {
+		return s.orders.Cancel(ctx, orderID, nil, s.now().UTC())
 	}
 	return s.orders.UpdateStatus(ctx, orderID, status, s.now().UTC())
 }
