@@ -13,7 +13,8 @@ import (
 )
 
 type memoryProductRepository struct {
-	products map[primitive.ObjectID]models.Product
+	products       map[primitive.ObjectID]models.Product
+	findByIDsCalls int
 }
 
 func newMemoryProductRepository() *memoryProductRepository {
@@ -39,6 +40,16 @@ func (r *memoryProductRepository) FindByID(_ context.Context, id primitive.Objec
 		return models.Product{}, repositories.ErrProductNotFound
 	}
 	return product, nil
+}
+func (r *memoryProductRepository) FindByIDs(_ context.Context, ids []primitive.ObjectID) ([]models.Product, error) {
+	r.findByIDsCalls++
+	products := make([]models.Product, 0, len(ids))
+	for _, id := range ids {
+		if product, ok := r.products[id]; ok && product.Active {
+			products = append(products, product)
+		}
+	}
+	return products, nil
 }
 func (r *memoryProductRepository) Update(_ context.Context, id primitive.ObjectID, product models.Product) (models.Product, error) {
 	existing, err := r.FindByID(context.Background(), id)

@@ -42,16 +42,27 @@ func (s *OrderService) Create(ctx context.Context, userID primitive.ObjectID) (m
 	if len(cart.Items) == 0 {
 		return models.Order{}, ErrCartEmpty
 	}
+	for _, item := range cart.Items {
+		if item.ProductID.IsZero() || item.VariantID.IsZero() || item.Quantity < 1 {
+			return models.Order{}, ErrInvalidInput
+		}
+	}
+	productIDs := uniqueProductIDs(cart.Items)
+	products, err := s.products.FindByIDs(ctx, productIDs)
+	if err != nil {
+		return models.Order{}, err
+	}
+	productsByID := make(map[primitive.ObjectID]models.Product, len(products))
+	for _, product := range products {
+		productsByID[product.ID] = product
+	}
 
 	items := make([]models.OrderItem, 0, len(cart.Items))
 	var total float64
 	for _, cartItem := range cart.Items {
-		if cartItem.Quantity < 1 {
-			return models.Order{}, ErrInvalidInput
-		}
-		product, err := s.products.FindByID(ctx, cartItem.ProductID)
-		if err != nil {
-			return models.Order{}, err
+		product, found := productsByID[cartItem.ProductID]
+		if !found {
+			return models.Order{}, repositories.ErrProductNotFound
 		}
 		var variant models.ProductVariant
 		for _, candidate := range product.Variants {
@@ -73,6 +84,19 @@ func (s *OrderService) Create(ctx context.Context, userID primitive.ObjectID) (m
 		total += subtotal
 	}
 	return s.orders.CreateFromCart(ctx, userID, items, math.Round(total*100)/100)
+}
+
+func uniqueProductIDs(items []models.CartItem) []primitive.ObjectID {
+	ids := make([]primitive.ObjectID, 0, len(items))
+	seen := make(map[primitive.ObjectID]struct{}, len(items))
+	for _, item := range items {
+		if _, exists := seen[item.ProductID]; exists {
+			continue
+		}
+		seen[item.ProductID] = struct{}{}
+		ids = append(ids, item.ProductID)
+	}
+	return ids
 }
 
 func (s *OrderService) ListByUser(ctx context.Context, userID primitive.ObjectID, page, limit int) (models.OrderListResponse, error) {

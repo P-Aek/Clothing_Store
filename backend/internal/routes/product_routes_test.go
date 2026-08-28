@@ -133,6 +133,15 @@ func (r *routeProductRepository) FindByID(_ context.Context, id primitive.Object
 	}
 	return product, nil
 }
+func (r *routeProductRepository) FindByIDs(_ context.Context, ids []primitive.ObjectID) ([]models.Product, error) {
+	products := make([]models.Product, 0, len(ids))
+	for _, id := range ids {
+		if product, ok := r.products[id]; ok && product.Active {
+			products = append(products, product)
+		}
+	}
+	return products, nil
+}
 func (r *routeProductRepository) Update(context.Context, primitive.ObjectID, models.Product) (models.Product, error) {
 	return models.Product{}, repositories.ErrProductNotFound
 }

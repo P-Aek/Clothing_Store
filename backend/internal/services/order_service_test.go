@@ -131,6 +131,9 @@ func TestOrderServiceCreatesSnapshotAndTotalFromCart(t *testing.T) {
 	if item.ProductName != "Blue Shirt" || item.Color != "Blue" || item.Size != "M" || item.Subtotal != 51 {
 		t.Fatalf("order item = %+v", item)
 	}
+	if products.findByIDsCalls != 1 {
+		t.Fatalf("bulk product lookups = %d, want 1", products.findByIDsCalls)
+	}
 }
 
 func TestOrderServiceRejectsEmptyCartAndStockFailure(t *testing.T) {
@@ -151,6 +154,23 @@ func TestOrderServiceRejectsEmptyCartAndStockFailure(t *testing.T) {
 	orders.stockFailure = true
 	if _, err := service.Create(context.Background(), userID); !errors.Is(err, repositories.ErrOrderStockUnavailable) {
 		t.Fatalf("stock error = %v", err)
+	}
+}
+
+func TestOrderServiceValidatesCartBeforeLoadingProducts(t *testing.T) {
+	userID := primitive.NewObjectID()
+	products := newMemoryProductRepository()
+	carts := newMemoryCartRepository()
+	carts.carts[userID] = models.Cart{UserID: userID, Items: []models.CartItem{{
+		ProductID: primitive.NewObjectID(), VariantID: primitive.NewObjectID(), Quantity: 0,
+	}}}
+	service := NewOrderService(newMemoryOrderRepository(), carts, products)
+
+	if _, err := service.Create(context.Background(), userID); !errors.Is(err, ErrInvalidInput) {
+		t.Fatalf("invalid cart error = %v", err)
+	}
+	if products.findByIDsCalls != 0 {
+		t.Fatalf("bulk product lookups = %d, want 0", products.findByIDsCalls)
 	}
 }
 

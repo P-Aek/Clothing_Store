@@ -17,6 +17,7 @@ type ProductRepository interface {
 	Create(context.Context, models.Product) (models.Product, error)
 	List(context.Context, *primitive.ObjectID) ([]models.Product, error)
 	FindByID(context.Context, primitive.ObjectID) (models.Product, error)
+	FindByIDs(context.Context, []primitive.ObjectID) ([]models.Product, error)
 	Update(context.Context, primitive.ObjectID, models.Product) (models.Product, error)
 	Delete(context.Context, primitive.ObjectID, time.Time) error
 }
@@ -80,6 +81,23 @@ func (r *MongoProductRepository) FindByID(ctx context.Context, id primitive.Obje
 		return models.Product{}, err
 	}
 	return product, nil
+}
+
+func (r *MongoProductRepository) FindByIDs(ctx context.Context, ids []primitive.ObjectID) ([]models.Product, error) {
+	if len(ids) == 0 {
+		return []models.Product{}, nil
+	}
+	cursor, err := r.collection.Find(ctx, bson.M{"_id": bson.M{"$in": ids}, "active": true})
+	if err != nil {
+		return nil, err
+	}
+	defer cursor.Close(ctx)
+
+	products := make([]models.Product, 0, len(ids))
+	if err := cursor.All(ctx, &products); err != nil {
+		return nil, err
+	}
+	return products, nil
 }
 
 func (r *MongoProductRepository) Update(ctx context.Context, id primitive.ObjectID, product models.Product) (models.Product, error) {
